@@ -1,0 +1,5 @@
+# EAM/Alloy potential file for molecular dynamics
+# Zhou et al. multi-element parametrization
+2 Al Cu
+ 500  0.0050000000  0.0000000000
+13  26.9800000000  4.0500000000  fcc

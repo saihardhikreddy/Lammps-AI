@@ -1,0 +1,3 @@
+# Minimal dependencies for Local LAMMPS Research Assistant
+# The entire core engine runs purely on the Python 3.9+ Standard Library!
+# No cloud APIs (OpenAI, Anthropic, Gemini, Hugging Face) or remote vector databases required.
