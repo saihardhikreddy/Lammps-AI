@@ -11,11 +11,12 @@ from app.lammps.error_analyzer import ErrorAnalyzer
 from app.lammps.parser import ThermoParser
 from app.chatbot.memory import ConversationMemory
 from app.chatbot.responder import MarkdownResponder
+from app.chatbot.gemini_adapter import CloudGeminiClient
 from app.chatbot.llm_adapter import LocalLLM
 from app.chatbot.conversational_ai import ConversationalEngine
 
 class ChatbotRouter:
-    """Master conversational reasoning engine for local LAMMPS assistance, guidance, and project codebase RAG."""
+    """Master conversational reasoning engine for LAMMPS assistance, guidance, and project codebase RAG."""
 
     def __init__(self):
         self.retriever = LocalKnowledgeRetriever()
@@ -27,8 +28,13 @@ class ChatbotRouter:
         self.thermo_parser = ThermoParser()
         self.memory = ConversationMemory()
         self.responder = MarkdownResponder()
+        self.gemini_client = CloudGeminiClient()
         self.local_llm = LocalLLM()
         self.conversational_engine = ConversationalEngine()
+
+    def set_gemini_api_key(self, api_key: str, model_name: Optional[str] = None) -> None:
+        """Sets or updates the Cloud Gemini API key and model dynamically."""
+        self.gemini_client.set_api_key(api_key, model_name)
 
     def open_workspace(self, folder_path: str) -> Dict[str, Any]:
         """Loads and indexes a project directory into the active workspace RAG index."""
@@ -129,57 +135,43 @@ class ChatbotRouter:
                 self.memory.save_turn(conversation_id, message, response_payload)
                 return response_payload
 
-        # ── PRIORITY 4: Simulation Script Generation ───────────────────────
+        # ── PRIORITY 4: Out-of-scope requests (solid mechanics) ─────────────
         spec = self.intent_extractor.extract_intent(message)
-        if spec["intent"] == "GENERATE_SCRIPT":
-            response_payload["intent"] = "GENERATE_SCRIPT"
-            missing = spec.get("missing_parameters", [])
-            if missing and not spec.get("material_name"):
-                missing_list = "\n".join([f"- **{m}**" for m in missing])
-                answer_text = (
-                    f"To generate a tailored simulation for your experiment, please specify:\n\n"
-                    f"{missing_list}\n\n"
-                    f"*(For example: 'Simulate melting of aluminum at 900 K' or 'Create a Lennard-Jones liquid simulation')*"
-                )
-                response_payload["answer"] = self.responder.format_technical_answer(
-                    answer=answer_text,
-                    citations=["LAMMPS Manual -> Section 3 -> Commands", "LAMMPS Manual -> Potential Styles"],
-                    notes="Explicitly defining atom types and boundary conditions ensures correct physics."
-                )
-                response_payload["citations"] = ["LAMMPS Manual -> Commands", "LAMMPS Manual -> Examples"]
-            else:
-                gen_res = self.generator.generate(spec)
-                script = gen_res["script"]
-                val_res = self.validator.validate_static(script)
-
-                assump_md = "\n".join([f"- {a}" for a in gen_res["assumptions"]])
-                answer_text = (
-                    f"**Goal**: {gen_res['goal']}\n\n"
-                    f"### Key Assumptions & Parameters\n{assump_md}\n\n"
-                    f"### Ready to Simulate Locally\n"
-                    f"Click **'Run Simulation Locally'** below to execute this simulation on your installed LAMMPS binary."
-                )
-
-                response_payload["answer"] = self.responder.format_technical_answer(
-                    answer=answer_text,
-                    command_syntax=f"# Generated LAMMPS Script\n{script}",
-                    why_explanation="Selected potential styles, thermostats, and timesteps are matched to the material lattice and unit system for numeric stability.",
-                    citations=gen_res["citations"],
-                    notes=gen_res["limitations"]
-                )
-                response_payload["script"] = script
-                response_payload["validation"] = val_res
-                response_payload["assumptions"] = gen_res["assumptions"]
-                response_payload["citations"] = gen_res["citations"]
-                response_payload["requires_confirmation"] = val_res["valid"]
-
+        if spec.get("simulation_type") == "unsupported_tensile":
+            response_payload["intent"] = "UNSUPPORTED_REQUEST"
+            answer_text = (
+                "### Out of Scope: Solid-State Mechanics\n\n"
+                "Uniaxial tensile deformation, strain-rate loading, and crystalline stress-strain curves "
+                "are solid mechanics concepts that have no liquid analogue and are **out of scope** "
+                "for this liquid-state research assistant.\n\n"
+                "This tool specializes strictly in **liquid-state simulations and analysis**:\n"
+                "- **Lennard-Jones Fluid** (`units lj`, NVE/NVT)\n"
+                "- **Rigid SPC/E Liquid Water** (`pair_style lj/cut/coul/long` with PPPM/Ewald, SHAKE)\n"
+                "- **Molten Metals** (post-melt liquid thermalization & production for Al, Cu, Ni, Fe)\n"
+                "- **Liquid Transport Properties**: Self-diffusion coefficient ($D$) via Einstein relation\n"
+                "- **Shear Viscosity**: Equilibrium Green-Kubo pressure tensor autocorrelation\n"
+                "- **Structural Characterization**: Radial Distribution Function ($g(r)$)\n\n"
+                "Please request a liquid equilibration, transport, or structural simulation instead."
+            )
+            response_payload["answer"] = self.responder.format_technical_answer(
+                answer=answer_text,
+                citations=["LAMMPS Manual → Liquids & Statistical Mechanics"],
+                notes="Solid-state mechanics functionality was retired per course project scope."
+            )
+            response_payload["citations"] = ["LAMMPS Manual → Liquids & Statistical Mechanics"]
             self.memory.save_turn(conversation_id, message, response_payload)
             return response_payload
 
-        # ── PRIORITY 5: Agentic Local LLM with Project Workspace & Manual RAG ─
-        # When Gemma / Ollama is active on the machine, query Gemma with both
-        # Project Codebase chunks (if workspace is open) and LAMMPS manual chunks!
-        if self.local_llm.is_available():
+        # ── PRIORITY 5: Script generation for supported systems ────────────
+        # Always the validated templates, never an LLM: the script must be reproducible and must
+        # honor (or explicitly report overriding) every parameter the user stated.
+        if spec["intent"] == "GENERATE_SCRIPT" and spec.get("material_name"):
+            self._fill_template_response(response_payload, spec)
+            self.memory.save_turn(conversation_id, message, response_payload)
+            return response_payload
+
+        # ── PRIORITY 6: Cloud Gemini (optional) for questions and unsupported systems ──
+        if self.gemini_client.is_available():
             rag_docs = []
             citations = []
 
@@ -193,38 +185,115 @@ class ChatbotRouter:
                     citations.append(f"Workspace Project → {chunk.rel_path}:{chunk.start_line}-{chunk.end_line}")
 
             # 2. Search Official LAMMPS Documentation
-            search_results = self.retriever.search(message, top_k=2)
+            search_results = self.retriever.search(message, top_k=3)
             if search_results:
                 rag_docs.extend([r[0].content for r in search_results])
                 citations.extend([r[0].source_path for r in search_results])
 
             history = self.memory.get_conversation_history(conversation_id)
 
-            llm_reply = self.local_llm.generate(
+            gemini_reply, err = self.gemini_client.generate_with_diagnostics(
                 prompt=message,
                 rag_context=rag_docs,
-                conversation_history=history
+                conversation_history=history,
+                extracted_params=spec.get("structured_params")
             )
 
-            if llm_reply and len(llm_reply.strip()) > 5:
-                response_payload["answer"] = llm_reply
-                response_payload["source"] = f"Gemma 4 ({self.local_llm.model_name})"
-                response_payload["citations"] = citations
-
-                # Check if Gemma returned an executable LAMMPS code block
-                code_match = re.search(r"```(?:lammps)?\n(.*?)```", llm_reply, re.DOTALL | re.IGNORECASE)
-                if code_match:
-                    extracted_code = code_match.group(1).strip()
-                    if "\n" in extracted_code and any(k in extracted_code for k in ["units", "atom_style", "pair_style", "fix"]):
-                        val_res = self.validator.validate_static(extracted_code)
-                        response_payload["script"] = extracted_code
-                        response_payload["validation"] = val_res
-                        response_payload["requires_confirmation"] = val_res["valid"]
-
+            if gemini_reply and len(gemini_reply.strip()) > 5:
+                self._fill_llm_response(response_payload, gemini_reply,
+                                        f"Cloud Gemini ({self.gemini_client.model_name})", citations)
                 self.memory.save_turn(conversation_id, message, response_payload)
                 return response_payload
 
-        # ── PRIORITY 6: Documentation Search Fallback ──────────────────────
+            elif err:
+                if spec["intent"] == "GENERATE_SCRIPT":
+                    self._fill_missing_material_response(response_payload, spec)
+                    response_payload["answer"] = f"> ⚠️ **Gemini unavailable**: `{err[:160]}`\n\n" + response_payload["answer"]
+                    response_payload["source"] = "Template Request (Gemini Error)"
+                    self.memory.save_turn(conversation_id, message, response_payload)
+                    return response_payload
+                else:
+                    search_results = self.retriever.search(message, top_k=3)
+                    if search_results and search_results[0][1] > 0.12:
+                        top_chunk, score, _ = search_results[0]
+                        citations = [r[0].source_path for r in search_results]
+                        response_payload["answer"] = (
+                            f"> ⚠️ **Gemini Notice**: `{err[:120]}`\n\n" +
+                            self.responder.format_technical_answer(
+                                answer=top_chunk.content,
+                                command_syntax=top_chunk.command_name or top_chunk.title,
+                                why_explanation=f"Referenced from official LAMMPS documentation section: '{top_chunk.section}'.",
+                                citations=citations,
+                                notes="Ensure the chosen command style is compatible with your active unit convention and atom_style."
+                            )
+                        )
+                        response_payload["source"] = "RAG Documentation (Gemini Offline)"
+                        response_payload["citations"] = citations
+                        self.memory.save_turn(conversation_id, message, response_payload)
+                        return response_payload
+                    else:
+                        response_payload["answer"] = (
+                            f"### ⚠️ Cloud Gemini Error\n\n"
+                            f"`{err}`\n\n"
+                            f"Please ensure a valid API key is set in `.env` or in the UI settings (https://aistudio.google.com/apikey)."
+                        )
+                        response_payload["source"] = "Gemini Error"
+                        self.memory.save_turn(conversation_id, message, response_payload)
+                        return response_payload
+
+        # ── PRIORITY 6b: Local LLM (Ollama, optional) ─────────
+        if self.local_llm.is_available():
+            rag_docs = []
+            citations = []
+
+            if self.workspace_indexer.is_active():
+                proj_results = self.workspace_indexer.search_workspace(message, top_k=2)
+                for chunk, score in proj_results:
+                    rag_docs.append(
+                        f"Workspace File: {chunk.rel_path} (Lines {chunk.start_line}-{chunk.end_line}) [{chunk.block_type}]:\n{chunk.content.strip()}"
+                    )
+                    citations.append(f"Workspace Project → {chunk.rel_path}:{chunk.start_line}-{chunk.end_line}")
+
+            search_results = self.retriever.search(message, top_k=3)
+            if search_results:
+                rag_docs.extend([r[0].content for r in search_results])
+                citations.extend([r[0].source_path for r in search_results])
+
+            history = self.memory.get_conversation_history(conversation_id)
+
+            llm_reply, err = self.local_llm.generate_with_diagnostics(
+                prompt=message,
+                rag_context=rag_docs,
+                conversation_history=history,
+                extracted_params=spec.get("structured_params")
+            )
+
+            if llm_reply and len(llm_reply.strip()) > 5:
+                self._fill_llm_response(response_payload, llm_reply,
+                                        f"Local LLM ({self.local_llm.model_name})", citations)
+                self.memory.save_turn(conversation_id, message, response_payload)
+                return response_payload
+
+            elif err:
+                if spec["intent"] == "GENERATE_SCRIPT":
+                    self._fill_missing_material_response(response_payload, spec)
+                    response_payload["answer"] = f"> ⚠️ **Local LLM unavailable**: `{err[:160]}`\n\n" + response_payload["answer"]
+                    response_payload["source"] = "Template Request (LLM Error)"
+                    self.memory.save_turn(conversation_id, message, response_payload)
+                    return response_payload
+                else:
+                    response_payload["answer"] = f"### ⚠️ Local LLM Error\n\nCould not query local model `{self.local_llm.model_name}`:\n\n`{err}`\n\nPlease ensure `ollama serve` is running on `127.0.0.1:11434`."
+                    response_payload["source"] = "Error"
+                    self.memory.save_turn(conversation_id, message, response_payload)
+                    return response_payload
+
+        # ── PRIORITY 7: Script request without a supported system, no LLM available ──
+        if spec["intent"] == "GENERATE_SCRIPT":
+            self._fill_missing_material_response(response_payload, spec)
+            self.memory.save_turn(conversation_id, message, response_payload)
+            return response_payload
+
+        # ── PRIORITY 8: Documentation Search Fallback ──────────────────────
         search_results = self.retriever.search(message, top_k=3)
         if search_results and search_results[0][1] > 0.15:
             top_chunk, score, _ = search_results[0]
@@ -244,7 +313,7 @@ class ChatbotRouter:
             self.memory.save_turn(conversation_id, message, response_payload)
             return response_payload
 
-        # ── PRIORITY 7: Conversational Engine Fallback ─────────────────────
+        # ── PRIORITY 9: Conversational Engine Fallback ─────────────────────
         conv_match = self.conversational_engine.match_intent(message)
         if conv_match:
             response_payload["intent"] = conv_match["intent"]
@@ -253,7 +322,7 @@ class ChatbotRouter:
             self.memory.save_turn(conversation_id, message, response_payload)
             return response_payload
 
-        # ── PRIORITY 8: Intelligent Fallback ───────────────────────────────
+        # ── PRIORITY 10: Intelligent Fallback ───────────────────────────────
         user_words = message.strip()
         if len(user_words) < 15:
             answer_text = (
@@ -261,7 +330,7 @@ class ChatbotRouter:
                 "Here are some things I can do for you right now:\n\n"
                 "**Quick Actions:**\n"
                 "- Say *\"help\"* to see everything I can do\n"
-                "- Say *\"simulate melting of aluminum\"* to generate a full simulation\n"
+                "- Say *\"simulate molten aluminum at 1100 K\"* to generate a full simulation\n"
                 "- Say *\"what is molecular dynamics?\"* to learn the fundamentals\n"
                 "- Open a project folder to index and reason over all your research scripts\n"
                 "- Paste any LAMMPS script or error for instant debugging\n\n"
@@ -271,9 +340,9 @@ class ChatbotRouter:
             answer_text = (
                 "Thanks for your question. Let me help you with that.\n\n"
                 "Based on what you've described, here are some relevant directions:\n\n"
-                "- **If this is about a simulation**, tell me the material "
-                "(e.g. Aluminum, Copper, Silicon) and what you want to observe "
-                "(melting, tensile test, diffusion, thermal conductivity)\n"
+                "- **If this is about a simulation**, tell me the liquid "
+                "(Lennard-Jones fluid, argon, SPC/E water, or molten Al/Cu/Ni/Fe) and what you want to "
+                "measure (structure via g(r), self-diffusion, or shear viscosity)\n"
                 "- **If this is about a LAMMPS command**, try asking directly: "
                 "*\"How does fix nvt work?\"* or *\"Explain pair_style eam\"*\n"
                 "- **If you have an open project**, ask me about your specific scripts, potentials, or data files\n"
@@ -286,6 +355,74 @@ class ChatbotRouter:
 
         self.memory.save_turn(conversation_id, message, response_payload)
         return response_payload
+
+    # ── Response builders ───────────────────────────────────────────────────
+    def _fill_template_response(self, payload: Dict[str, Any], spec: Dict[str, Any]) -> None:
+        """Script from the validated deterministic templates, with every assumption listed."""
+        gen_res = self.generator.generate(spec)
+        script = gen_res["script"]
+        val_res = self.validator.validate_static(script)
+        assump_md = "\n".join([f"- {a}" for a in gen_res["assumptions"]])
+        run_hint = ("Click **'Run Simulation Locally'** below to run it." if val_res["valid"]
+                    else "The validator found errors, so running is disabled until they are fixed.")
+        answer_text = (
+            f"**Goal**: {gen_res['goal']}\n\n"
+            f"### Key Assumptions & Parameters\n{assump_md}\n\n"
+            f"### Ready to Simulate Locally\n{run_hint}"
+        )
+        payload["intent"] = "GENERATE_SCRIPT"
+        payload["answer"] = self.responder.format_technical_answer(
+            answer=answer_text,
+            command_syntax=f"# Generated LAMMPS Script\n{script}",
+            why_explanation="Potential, thermostat and timestep are matched to the unit system and liquid; "
+                            "every override of a stated parameter is listed above.",
+            citations=gen_res["citations"],
+            notes=gen_res["limitations"]
+        )
+        payload["source"] = "Deterministic Template (validated)"
+        payload["script"] = script
+        payload["validation"] = val_res
+        payload["assumptions"] = gen_res["assumptions"]
+        payload["citations"] = gen_res["citations"]
+        payload["visual_metadata"] = gen_res.get("visual_metadata")
+        payload["requires_confirmation"] = val_res["valid"]
+
+    def _fill_missing_material_response(self, payload: Dict[str, Any], spec: Dict[str, Any]) -> None:
+        missing = spec.get("missing_parameters") or ["Material / Liquid System"]
+        missing_list = "\n".join([f"- **{m}**" for m in missing])
+        payload["intent"] = "GENERATE_SCRIPT"
+        payload["answer"] = self.responder.format_technical_answer(
+            answer=(
+                "To generate a validated simulation, please specify a supported liquid:\n\n"
+                f"{missing_list}\n\n"
+                "Supported: Lennard-Jones fluid, argon, SPC/E water, molten aluminum, copper, nickel, iron.\n"
+                "*(For example: 'Simulate molten aluminum at 1100 K' or 'Diffusion coefficient of water at 300 K')*"
+            ),
+            citations=["LAMMPS Manual -> Commands"],
+        )
+        payload["source"] = "Template Request (material needed)"
+        payload["citations"] = ["LAMMPS Manual -> Commands"]
+
+    def _fill_llm_response(self, payload: Dict[str, Any], reply: str, source: str, citations: List[str]) -> None:
+        """LLM text answer. Any script it contains is validated and clearly labelled as unverified."""
+        payload["answer"] = reply
+        payload["source"] = source
+        payload["citations"] = citations
+        payload["llm_generated"] = True
+        code_match = re.search(r"```(?:lammps)?\n(.*?)```", reply, re.DOTALL | re.IGNORECASE)
+        if code_match:
+            extracted_code = code_match.group(1).strip()
+            if "\n" in extracted_code and any(k in extracted_code for k in ["units", "atom_style", "pair_style", "fix"]):
+                val_res = self.validator.validate_static(extracted_code)
+                payload["script"] = extracted_code
+                payload["validation"] = val_res
+                payload["requires_confirmation"] = val_res["valid"]
+                payload["intent"] = "GENERATE_SCRIPT"
+                payload["answer"] = (
+                    f"> ⚠️ **Unverified script** - written by {source}, not by the validated templates. "
+                    f"It passed only the static checks shown below; review the physics before running.\n\n"
+                    + reply
+                )
 
     def _repair_script(self, broken_script: str, validation_res: Dict[str, Any]) -> tuple[str, list[str]]:
         """Intelligently fixes syntax and missing parameters in a user-pasted script, returning (repaired_script, list_of_applied_fixes)."""
