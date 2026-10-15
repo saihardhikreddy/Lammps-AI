@@ -8,6 +8,8 @@ class TestLAMMPSEndToEndScenarios(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.router = ChatbotRouter()
+        cls.router.gemini_client.is_available = lambda: False
+        cls.router.local_llm.is_available = lambda: False
 
     # Scenario 1: Explain Lennard-Jones potential
     def test_scenario_01_explain_lj(self):
@@ -41,7 +43,7 @@ class TestLAMMPSEndToEndScenarios(unittest.TestCase):
         self.assertEqual(res["intent"], "GENERATE_SCRIPT")
         self.assertIsNotNone(res["script"])
         self.assertIn("units           metal", res["script"])
-        self.assertIn("fix             1 all nvt", res["script"])
+        self.assertIn("fix             prod all nvt", res["script"])
         self.assertTrue(res["validation"]["valid"])
 
     # Scenario 5: Explain pair_style eam
@@ -85,12 +87,12 @@ class TestLAMMPSEndToEndScenarios(unittest.TestCase):
         self.assertEqual(res["intent"], "DIAGNOSE_ERROR")
         self.assertIn("timestep", res["answer"].lower())
 
-    # Scenario 11: Incomplete Scientific Request
+    # Scenario 11: Incomplete Liquid Scientific Request
     def test_scenario_11_incomplete_scientific_request(self):
         conv_id = str(uuid.uuid4())
-        res = self.router.process_message(conv_id, "I want to simulate tensile deformation of a material")
+        res = self.router.process_message(conv_id, "I want to simulate a liquid")
         self.assertEqual(res["intent"], "GENERATE_SCRIPT")
-        self.assertTrue(any(phrase in res["answer"].lower() for phrase in ["please specify", "material", "composition"]))
+        self.assertTrue(any(phrase in res["answer"].lower() for phrase in ["please specify", "material", "liquid system"]))
 
     # Scenario 12: Memory persistence
     def test_scenario_12_memory_persistence(self):
@@ -114,6 +116,25 @@ class TestLAMMPSEndToEndScenarios(unittest.TestCase):
         res = self.router.process_message(conv_id, question)
         self.assertNotEqual(res["intent"], "REPAIR_SCRIPT")
         self.assertEqual(res["intent"], "DIAGNOSE_ERROR")
+
+    # Scenario 15: Tensile deformation request is cleanly rejected as out-of-scope
+    def test_scenario_15_tensile_out_of_scope(self):
+        conv_id = str(uuid.uuid4())
+        res = self.router.process_message(conv_id, "Simulate uniaxial tensile deformation of copper under strain rate 0.001")
+        self.assertEqual(res["intent"], "UNSUPPORTED_REQUEST")
+        self.assertIn("out of scope", res["answer"].lower())
+        self.assertIn("solid mechanics", res["answer"].lower())
+        self.assertIsNone(res["script"])
+
+    # Scenario 16: Rigid SPC/E water simulation generation
+    def test_scenario_16_water_liquid_simulation(self):
+        conv_id = str(uuid.uuid4())
+        res = self.router.process_message(conv_id, "Generate a simulation of water at 300 K in NVT ensemble")
+        self.assertEqual(res["intent"], "GENERATE_SCRIPT")
+        self.assertIsNotNone(res["script"])
+        self.assertIn("units           real", res["script"])
+        self.assertIn("fix             rigidH2O all shake", res["script"])
+        self.assertTrue(res["validation"]["valid"])
 
 if __name__ == "__main__":
     unittest.main()

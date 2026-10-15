@@ -53,7 +53,7 @@ fix             1 all nvt temp 300.0 300.0 0.1"""
         "command": "pair_coeff",
         "cause": "LAMMPS could not locate a potential file or data file on the disk path.",
         "scientific_reason": "The potential file specified in pair_coeff or data file in read_data is missing from the working directory.",
-        "suggested_fix": "Copy the required potential file (e.g., Al99.eam.alloy, Cu_u3.eam, Si.tersoff) into the simulation directory.",
+        "suggested_fix": "Copy the required potential file (e.g., Al_zhou.eam.alloy, Cu_zhou.eam.alloy) into the simulation directory.",
         "patch_example": """pair_style      eam/alloy
 pair_coeff      * * Al99.eam.alloy Al"""
     },
