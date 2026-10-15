@@ -1,0 +1,4 @@
+# Optional visualization dependency for Local LAMMPS Research Assistant
+# Core chatbot, RAG engine, and WebGL2 3D viewer run purely on standard library with zero dependencies.
+# Install this file only if you want local headless OVITO post-run image rendering and coordination histogram extraction:
+ovito>=3.9.0
