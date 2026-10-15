@@ -1,3 +1,7 @@
+/* Offline fallback: the Tailwind CDN is unavailable without internet, so the utility class
+   used to hide panels (including the SYNTHETIC DATA banner) must also be defined locally. */
+.hidden { display: none !important; }
+
 /* ═══════════════════════════════════════════════════════════ */
 /* LAMMPS AI Research Suite — Liquid Glass Design System       */
 /* ═══════════════════════════════════════════════════════════ */
@@ -348,7 +352,7 @@ html, body {
 /* Scroll-Revealed Centerpiece (Stage 2 - Framing Sphere Cleanly) */
 .hero-scroll-revealer {
   position: absolute;
-  top: 44%;
+  top: 75%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
@@ -360,20 +364,20 @@ html, body {
 }
 
 .revealer-title {
-  font-size: 50px;
-  font-weight: 800;
-  line-height: 1.14;
-  letter-spacing: -1.8px;
-  margin-bottom: 14px;
+  font-size: 44px; 
+  font-weight: 800; 
+  line-height: 1.16;
+  letter-spacing: -1.5px; 
+  margin-bottom: 12px;
   color: var(--text-bright);
-  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.95), 0 0 40px rgba(224, 64, 251, 0.3);
 }
 
 .revealer-sub {
-  font-size: 16.5px;
+  font-size: 15.5px; 
   color: var(--text-muted);
-  max-width: 640px;
-  margin: 0 auto;
+  max-width: 640px; 
+  margin: 0 auto; 
   line-height: 1.55;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.95);
 }
@@ -508,6 +512,230 @@ html, body {
 /* ═══════════════════════════════════════════════════════════ */
 /* LIQUID GLASS PROMPT & INTERACTIVE CONTROLS                  */
 /* ═══════════════════════════════════════════════════════════ */
+
+/* Universal Dark Glass Form Inputs & Dropdowns (Eliminates White Boxes) */
+.input-glass,
+select.input-glass,
+select,
+input[type="text"]:not(.bg-transparent),
+input[type="password"]:not(.bg-transparent),
+input[type="number"]:not(.bg-transparent),
+input[type="search"]:not(.bg-transparent),
+textarea.input-glass {
+  background: rgba(14, 7, 26, 0.88) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: var(--font-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  transition: all var(--transition-fast);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.input-glass:focus,
+select.input-glass:focus,
+select:focus,
+input[type="text"]:not(.bg-transparent):focus,
+input[type="password"]:not(.bg-transparent):focus,
+input[type="number"]:not(.bg-transparent):focus,
+input[type="search"]:not(.bg-transparent):focus,
+textarea.input-glass:focus {
+  background: rgba(22, 10, 40, 0.96) !important;
+  border-color: var(--pink-primary) !important;
+  box-shadow: 0 0 18px var(--pink-glow), inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* Custom Dropdown Styling with Purple Arrow (No Native White Box) */
+select.input-glass,
+select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  cursor: pointer;
+  padding-right: 38px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23e040fb' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 16px 16px !important;
+}
+
+/* Dark Options List inside Select Dropdown */
+select option,
+select optgroup {
+  background-color: #120722 !important;
+  color: #ffffff !important;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #2e104e !important;
+  color: #e040fb !important;
+}
+
+/* Range Slider Styling */
+.range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.range-slider:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e040fb 0%, #6920df 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 12px var(--pink-glow);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 20px var(--pink-glow);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e040fb 0%, #6920df 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 12px var(--pink-glow);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+/* Ensemble Selection Buttons */
+.ensemble-btn {
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.ensemble-btn:hover {
+  background: rgba(224, 64, 251, 0.12);
+  border-color: var(--pink-primary);
+  color: #fff;
+}
+
+.ensemble-btn.active {
+  background: linear-gradient(135deg, rgba(224, 64, 251, 0.35) 0%, rgba(105, 32, 223, 0.35) 100%);
+  border-color: var(--pink-primary);
+  border-top-color: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(224, 64, 251, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Pill Tab Buttons for Runner Chart Modes */
+.pill-tab-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pill-tab-btn:hover {
+  background: rgba(224, 64, 251, 0.12);
+  color: #fff;
+  border-color: var(--pink-primary);
+}
+
+.pill-tab-btn.active {
+  background: linear-gradient(135deg, rgba(224, 64, 251, 0.3) 0%, rgba(105, 32, 223, 0.25) 100%);
+  color: #fff;
+  border-color: var(--pink-primary);
+  box-shadow: 0 0 12px rgba(224, 64, 251, 0.35);
+}
+
+/* Step Badges and Titles */
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.step-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(224, 64, 251, 0.2);
+  border: 1px solid rgba(224, 64, 251, 0.4);
+  color: var(--pink-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.step-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-family: var(--font-code);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-info {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.badge-success {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #34d399;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
+}
+
 .prompt-glass {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(18, 9, 32, 0.8) 100%);
   backdrop-filter: blur(28px) saturate(180%);
@@ -895,5 +1123,204 @@ pre.code-block {
 @keyframes nodeGlow {
   from { opacity: 0.4; transform: scale(0.8); }
   to { opacity: 1.0; transform: scale(1.2); }
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* AI THINKING & REASONING ANIMATION (LIQUID GLASS AESTHETIC)  */
+/* ═══════════════════════════════════════════════════════════ */
+
+.thinking-card {
+  background: linear-gradient(135deg, rgba(224, 64, 251, 0.08) 0%, rgba(26, 13, 44, 0.88) 45%, rgba(14, 7, 26, 0.96) 100%);
+  border: 1px solid rgba(224, 64, 251, 0.32);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(224, 64, 251, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  border-radius: 18px;
+  border-top-left-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  animation: thinkingCardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes thinkingCardFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.thinking-shimmer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e040fb 30%, #34d399 55%, #22d3ee 75%, transparent);
+  background-size: 200% 100%;
+  animation: thinkingShimmerBar 2.2s linear infinite;
+}
+
+@keyframes thinkingShimmerBar {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pulse-orb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e040fb;
+  box-shadow: 0 0 10px #e040fb, 0 0 4px #e040fb;
+  animation: pulseOrbAnim 1.3s ease-in-out infinite alternate;
+}
+
+@keyframes pulseOrbAnim {
+  from { transform: scale(0.85); opacity: 0.6; }
+  to { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px #e040fb, 0 0 6px #ffffff; }
+}
+
+.thinking-dots-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e040fb;
+  opacity: 0.4;
+  animation: thinkingDotWave 1.4s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(1) { animation-delay: 0s; background: #e040fb; }
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; background: #c084fc; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; background: #34d399; }
+.thinking-dot:nth-child(4) { animation-delay: 0.6s; background: #22d3ee; }
+
+@keyframes thinkingDotWave {
+  0%, 100% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-5px) scale(1.3);
+    opacity: 1;
+    box-shadow: 0 0 8px currentColor;
+  }
+}
+
+.thinking-atom-spinner {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thinking-atom-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: #e040fb;
+  border-right-color: #34d399;
+  animation: atomSpinRing1 1.3s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.thinking-atom-ring:nth-child(2) {
+  inset: 4px;
+  border-top-color: #22d3ee;
+  border-left-color: #e040fb;
+  animation: atomSpinRing2 1s cubic-bezier(0.5, 0, 0.5, 1) reverse infinite;
+}
+
+.thinking-atom-core {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 12px #e040fb, 0 0 4px #ffffff;
+  animation: atomCorePulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes atomSpinRing1 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes atomSpinRing2 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes atomCorePulse {
+  from { transform: scale(0.75); opacity: 0.7; }
+  to { transform: scale(1.25); opacity: 1; box-shadow: 0 0 16px #e040fb, 0 0 6px #22d3ee; }
+}
+
+.thinking-step-text {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #d8b4fe;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* BIG LINUX TERMINAL MIRROR WINDOW & WEBGL RUNNER ENHANCEMENTS*/
+/* ═══════════════════════════════════════════════════════════ */
+
+.terminal-window-wrapper {
+  background: #070b14 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.85), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+.terminal-titlebar {
+  background: linear-gradient(180deg, #131b2e 0%, #0c1220 100%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.terminal-screen {
+  background-color: #040810 !important;
+  color: #34d399 !important;
+  font-family: var(--font-code) !important;
+  font-size: 12.5px !important;
+  line-height: 1.65 !important;
+  box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.85) !important;
+  transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.terminal-screen::-webkit-scrollbar {
+  width: 9px;
+}
+.terminal-screen::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.45);
+}
+.terminal-screen::-webkit-scrollbar-thumb {
+  background: rgba(52, 211, 153, 0.25);
+  border-radius: 4px;
+}
+.terminal-screen::-webkit-scrollbar-thumb:hover {
+  background: rgba(52, 211, 153, 0.55);
+}
+
+.terminal-screen.expanded {
+  height: 720px !important;
+}
+
+.terminal-screen.compact {
+  height: 280px !important;
+}
+
+#trajectory-canvas {
+  height: 520px;
+  min-height: 460px;
+  transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#trajectory-canvas.expanded {
+  height: 740px !important;
 }
 

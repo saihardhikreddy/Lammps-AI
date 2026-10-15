@@ -14,7 +14,8 @@ class LocalIndexer:
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        conn = sqlite3.connect(self.db_path)
+        try:
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS doc_chunks (
@@ -38,9 +39,12 @@ class LocalIndexer:
                 CREATE INDEX IF NOT EXISTS idx_section ON doc_chunks(section);
             """)
             conn.commit()
+        finally:
+            conn.close()
 
     def index_chunks(self, chunks: List[DocChunk]):
-        with sqlite3.connect(self.db_path) as conn:
+        conn = sqlite3.connect(self.db_path)
+        try:
             cursor = conn.cursor()
             for c in chunks:
                 cursor.execute("""
@@ -53,9 +57,12 @@ class LocalIndexer:
                     json.dumps(c.keywords), json.dumps(c.metadata)
                 ))
             conn.commit()
+        finally:
+            conn.close()
 
     def load_all_chunks(self) -> List[DocChunk]:
-        with sqlite3.connect(self.db_path) as conn:
+        conn = sqlite3.connect(self.db_path)
+        try:
             cursor = conn.cursor()
             cursor.execute("SELECT chunk_id, source_path, doc_type, section, subsection, command_name, package_name, title, content, keywords_json, metadata_json FROM doc_chunks")
             rows = cursor.fetchall()
@@ -75,3 +82,5 @@ class LocalIndexer:
                     metadata=json.loads(r[10]) if r[10] else {}
                 ))
             return chunks
+        finally:
+            conn.close()

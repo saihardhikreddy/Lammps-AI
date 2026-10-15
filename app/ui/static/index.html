@@ -63,22 +63,13 @@
         <li class="dock-text-item" data-tab="tab-workspace">Workspace RAG</li>
         <li class="dock-text-item" data-tab="tab-chatbot">AI Chatbot</li>
         <li class="dock-text-item" data-tab="tab-studio">Script Studio</li>
+        <li class="dock-text-item" data-tab="tab-params">Param Runs</li>
         <li class="dock-text-item" data-tab="tab-runner">Runner</li>
-        <li class="dock-text-item" data-tab="tab-visualizer">3D Lattice</li>
+        <li class="dock-text-item" data-tab="tab-visualizer">3D Structure</li>
         <li class="dock-text-item" data-tab="tab-docs">Docs & Install</li>
       </ul>
     </div>
 
-    <!-- Right Status -->
-    <div class="nav-status">
-      <div class="flex items-center gap-2 font-mono text-xs text-gray-400">
-        <div class="status-dot" id="api-status-dot"></div>
-        <span id="api-status-text">FastAPI Ready</span>
-      </div>
-      <button class="btn btn-secondary btn-sm" data-tab="tab-chatbot">
-        <span>Explore 🚀</span>
-      </button>
-    </div>
   </nav>
 
   <!-- Main Viewport Stage -->
@@ -96,7 +87,7 @@
           <!-- Stage 1: Initial Hero Title -->
           <div class="hero-text-wrapper" id="hero-main-text">
             <h1 class="hero-title text-reveal-blur revealed">Molecular dynamics that<br><span class="text-shimmer">simply works.</span></h1>
-            <p class="hero-sub">Algorithmic execution of your LAMMPS simulations. 100% offline & local with Gemma 4 GPU acceleration.</p>
+            <p class="hero-sub">Algorithmic execution of your LAMMPS simulations powered by Cloud Gemini (gemini-2.5-flash) and liquid physics RAG.</p>
             
             <div class="flex items-center justify-center gap-3">
               <button class="btn-pill-app magnetic-btn" id="btn-hero-start" data-tab="tab-chatbot">
@@ -112,30 +103,10 @@
           <div class="hero-scroll-revealer" id="hero-scroll-text">
             <h2 class="revealer-title">Hello, I am LAMMPS AI.<br><span class="text-shimmer">Your research, assistant</span></h2>
             <p class="revealer-sub">
-              Grounded offline intelligence for materials science simulations — from automated ensemble generation to real-time 3D crystal lattice orbital inspection.
+              Grounded offline intelligence for liquid-state simulations — from automated fluid ensemble generation to real-time 3D molecular & fluid structure inspection.
             </p>
           </div>
 
-        </div>
-      </div>
-
-      <!-- Stage 3: Animated Stat Counters Banner (Scroll Reveal) -->
-      <div class="stats-banner scroll-reveal">
-        <div class="stat-item">
-          <div class="stat-num motion-counter" data-target="100" data-suffix="%">0%</div>
-          <div class="stat-label">Local & Offline</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num motion-counter" data-target="48">0</div>
-          <div class="stat-label">Tests Passing</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num motion-counter" data-target="2" data-prefix="<" data-suffix="s">&lt;0s</div>
-          <div class="stat-label">Response Latency</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num motion-counter" data-target="0">0</div>
-          <div class="stat-label">Cloud APIs</div>
         </div>
       </div>
 
@@ -147,13 +118,13 @@
           <p class="card-desc">Generate complete NVE/NVT/NPT scripts with EAM, Tersoff, and LJ force fields with automatic unit balancing.</p>
         </div>
 
-        <div class="glass-card cursor-pointer tilt-card" data-tab="tab-chatbot">
+        <div class="glass-card cursor-pointer tilt-card" onclick="openErrorAnalyzer()">
           <div class="card-icon">🔍</div>
           <h3 class="card-title">Diagnostic Error Analyzer</h3>
           <p class="card-desc">Instantly diagnose runtime tracebacks (Lost atoms, Out of range, Illegal fix) with verified code patches.</p>
         </div>
 
-        <div class="glass-card cursor-pointer tilt-card" data-tab="tab-studio" onclick="setTimeout(() => switchStudioSubtab('studio-doctor'), 50)">
+        <div class="glass-card cursor-pointer tilt-card" onclick="openScriptDoctor()">
           <div class="card-icon">🩺</div>
           <h3 class="card-title">Script Doctor</h3>
           <p class="card-desc">Auto-repair broken pasted scripts — inserting missing atom styles, bounding conditions, and fixing timesteps.</p>
@@ -161,8 +132,8 @@
 
         <div class="glass-card cursor-pointer tilt-card" data-tab="tab-visualizer">
           <div class="card-icon">🔮</div>
-          <h3 class="card-title">3D Lattice Visualizer</h3>
-          <p class="card-desc">Interactive 3D crystal orbital lattice viewer with mouse orbit, zoom, and real-time kinetic energy HUD.</p>
+          <h3 class="card-title">3D Molecular Visualizer</h3>
+          <p class="card-desc">Interactive 3D molecular & fluid structure orbital viewer with mouse orbit, zoom, and real-time kinetic energy HUD.</p>
         </div>
 
         <div class="glass-card cursor-pointer tilt-card" data-tab="tab-runner">
@@ -199,6 +170,10 @@
               <span>📂</span>
               <span id="chat-workspace-status">Workspace: Open Folder</span>
             </button>
+            <button onclick="openApiKeyModal()" class="px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-mono text-purple-300 flex items-center gap-1.5 transition-all" title="Configure Gemini API Key">
+              <span>🔑</span>
+              <span>API Key</span>
+            </button>
             <button onclick="startNewConversation()" class="btn btn-secondary btn-sm">
               <span>+ New Session</span>
             </button>
@@ -213,18 +188,18 @@
               Ask any materials science question, request customized simulation scripts, or drop/paste error tracebacks to repair.
             </p>
             <div class="grid-2">
-              <button class="quick-prompt-card" onclick="askPredefined('Simulate melting of aluminum using an NVT ensemble')">
+              <button class="quick-prompt-card" onclick="askPredefined('Simulate molten aluminum at 1000 K using an NVT ensemble')">
                 <span class="text-xl">⚛</span>
                 <div class="text-left">
-                  <div class="text-xs font-bold text-white">Aluminum Melting</div>
-                  <div class="text-[11px] text-gray-400">NVT ensemble + EAM potential</div>
+                  <div class="text-xs font-bold text-white">Molten Aluminum</div>
+                  <div class="text-[11px] text-gray-400">Post-melt NVT liquid equilibration</div>
                 </div>
               </button>
-              <button class="quick-prompt-card" onclick="askPredefined('Simulate tensile deformation of Copper')">
-                <span class="text-xl">💥</span>
+              <button class="quick-prompt-card" onclick="askPredefined('Simulate rigid SPC/E water at 300 K in NVT ensemble')">
+                <span class="text-xl">💧</span>
                 <div class="text-left">
-                  <div class="text-xs font-bold text-white">Copper Tensile</div>
-                  <div class="text-[11px] text-gray-400">Uniaxial strain & stress calculation</div>
+                  <div class="text-xs font-bold text-white">SPC/E Water Liquid</div>
+                  <div class="text-[11px] text-gray-400">Rigid SHAKE + Coulombic solver</div>
                 </div>
               </button>
               <button class="quick-prompt-card" onclick="askPredefined('Create a simple Lennard-Jones liquid simulation')">
@@ -234,11 +209,11 @@
                   <div class="text-[11px] text-gray-400">Equilibration in reduced units</div>
                 </div>
               </button>
-              <button class="quick-prompt-card" onclick="askPredefined('How do I use fix nvt in LAMMPS?')">
-                <span class="text-xl">📖</span>
+              <button class="quick-prompt-card" onclick="askPredefined('Calculate shear viscosity using Green-Kubo for Lennard-Jones liquid')">
+                <span class="text-xl">📊</span>
                 <div class="text-left">
-                  <div class="text-xs font-bold text-white">Command Syntax</div>
-                  <div class="text-[11px] text-gray-400">Lookup fix nvt manual documentation</div>
+                  <div class="text-xs font-bold text-white">Green-Kubo Viscosity</div>
+                  <div class="text-[11px] text-gray-400">Stress tensor autocorrelation</div>
                 </div>
               </button>
             </div>
@@ -283,7 +258,7 @@
       <div class="sub-dock-wrapper">
         <div class="sub-dock-nav">
           <div class="sub-dock-item active" data-subtab="studio-gen" onclick="switchStudioSubtab('studio-gen')">🛠️ Interactive Builder</div>
-          <div class="sub-dock-item" data-subtab="studio-doctor" onclick="switchStudioSubtab('studio-doctor')">🩺 Script Doctor</div>
+          <div class="sub-dock-item" data-subtab="studio-doctor" onclick="switchStudioSubtab('studio-doctor')">🔍 Error Analyzer & Doctor</div>
         </div>
       </div>
 
@@ -374,7 +349,7 @@
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
             <div class="step-header mb-0">
               <span class="step-badge" style="background: rgba(6,182,212,0.2); color: #22d3ee; border-color: rgba(6,182,212,0.4);">DIAGNOSE</span>
-              <span class="step-title">Script Doctor & Auto-Repair</span>
+              <span class="step-title">Diagnostic Error Analyzer & Script Doctor</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] font-mono text-gray-400">Load Preset:</span>
@@ -450,10 +425,55 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- VIEW 3b: PARAMETER RUNS (lecturer scripts, edit variables)  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="tab-view" id="tab-params">
+      <div class="space-y-6">
+        <div class="glass-card">
+          <div class="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4 gap-3 flex-wrap">
+            <h3 class="text-base font-bold text-white">Parameter Runs</h3>
+            <select id="prun-select" class="input-glass text-xs py-1 px-2.5 font-mono max-w-[360px]" title="Choose a lecturer script"></select>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Change the script's own <code>variable</code> values, check the edited script, then run it in LAMMPS. The console and the 3D trajectory stream live in the Runner tab.</p>
+          <div id="prun-viewer-note" class="hidden mb-4 p-3 rounded-lg border border-amber-500/30 bg-amber-950/30 text-xs text-amber-200"></div>
+          <div class="grid grid-cols-1 lg:grid-cols-[minmax(280px,380px)_1fr] gap-6">
+            <form id="prun-form" class="space-y-3" onsubmit="event.preventDefault(); prunRun();">
+              <div id="prun-fields" class="space-y-3"></div>
+              <div id="prun-error" class="hidden text-xs font-mono text-red-300 bg-red-950/30 border border-red-500/30 rounded-lg p-2"></div>
+              <div class="flex gap-2 pt-2">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="prunReset()">Reset to file values</button>
+                <button type="submit" id="prun-run-btn" class="btn btn-primary">🚀 Run in LAMMPS</button>
+              </div>
+            </form>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-gray-300 uppercase tracking-widest">Edited script (read-only)</span>
+                <span class="text-[11px] text-gray-400 font-mono"><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400/40 align-middle"></span> changed lines</span>
+              </div>
+              <pre id="prun-preview" class="font-mono text-[11px] leading-relaxed text-gray-300 bg-[#070b14] p-3 max-h-[560px] overflow-auto border border-white/10 rounded-xl whitespace-pre"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- VIEW 4: SIMULATION RUNNER                                   -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="tab-view" id="tab-runner">
       <div class="space-y-6">
+        <!-- Persistent Synthetic Data Banner -->
+        <div id="runner-synthetic-banner" class="hidden p-4 rounded-xl border border-amber-500/40 bg-amber-950/40 text-amber-300 flex items-center justify-between shadow-[0_0_24px_rgba(245,158,11,0.18)]">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">⚠️</span>
+            <div>
+              <div class="font-bold text-xs uppercase tracking-widest text-amber-400">SYNTHETIC DATA — BUILT-IN OFFLINE MD ENGINE</div>
+              <div class="text-xs text-amber-200/80 mt-0.5">Local LAMMPS binary not found. Trajectory and thermodynamic states simulated by the built-in offline numerical engine.</div>
+            </div>
+          </div>
+          <span class="text-xs font-mono px-3 py-1 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 tracking-wider">OFFLINE ENGINE</span>
+        </div>
+
         <div class="glass-card">
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
             <h3 class="text-base font-bold text-white">Execution Monitor & Results</h3>
@@ -471,6 +491,173 @@
           </div>
         </div>
 
+        <!-- Live Linux Terminal Console Mirror (Authentic Big Window) -->
+        <div class="glass-card terminal-window-wrapper relative overflow-hidden" id="runner-terminal-card">
+          <!-- Terminal Titlebar (Ubuntu / macOS Chrome) -->
+          <div class="terminal-titlebar flex items-center justify-between px-4 py-2.5 bg-[#0e1322] border-b border-white/10 rounded-t-xl select-none">
+            <div class="flex items-center gap-2.5">
+              <!-- Window control dots -->
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer hover:opacity-80 transition-opacity" title="Close / Clear Console" onclick="clearTerminalOutput()"></span>
+                <span class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] cursor-pointer hover:opacity-80 transition-opacity" title="Minimize / Compact View" onclick="setTerminalHeight('compact')"></span>
+                <span class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] cursor-pointer hover:opacity-80 transition-opacity" title="Maximize / Big Terminal" onclick="toggleTerminalExpand()"></span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-mono font-bold text-gray-300 ml-2">
+                <span class="text-emerald-400 font-bold">❯_</span>
+                <span>lammps@wsl2:~/simulations — bash (140×45)</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 font-mono text-xs">
+              <span id="runner-terminal-status" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald shadow-[0_0_6px_#34d399] animate-pulse"></span>
+                Ready
+              </span>
+              <button class="btn btn-secondary btn-sm text-[11px] px-2.5 py-0.5" onclick="copyTerminalOutput()" title="Copy entire terminal log">
+                <span>📋 Copy</span>
+              </button>
+              <button class="btn btn-secondary btn-sm text-[11px] px-2.5 py-0.5" onclick="clearTerminalOutput()" title="Clear terminal text">
+                <span>🗑️ Clear</span>
+              </button>
+              <button id="btn-terminal-expand" class="btn btn-secondary btn-sm text-[11px] px-2.5 py-0.5" onclick="toggleTerminalExpand()" title="Toggle Big Terminal Size">
+                <span id="terminal-expand-icon">⛶ Expand</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Big Terminal Screen Body -->
+          <pre id="runner-terminal-pre" class="terminal-screen font-mono text-xs leading-relaxed text-emerald-300 bg-[#070b14] p-5 h-[480px] overflow-y-auto border-x border-b border-white/10 rounded-b-xl selection:bg-emerald-500/30 whitespace-pre-wrap transition-all duration-300 shadow-inner">┌──(lammps㉿wsl2)-[~/simulations]
+└─$ lmp -in in.run -log log.lammps
+[WSL2 Ubuntu 24.04 LTS — LAMMPS Parallel Execution Engine]
+[Live stdout mirror connected via Server-Sent Events]
+══════════════════════════════════════════════════════════════════════════════════════════════
+Waiting for simulation command... Run from 3D Player below or drop a script.
+</pre>
+        </div>
+
+        <!-- 3D Atomic Trajectory Player (WebGL2 Instanced with Direct Runner) -->
+        <div class="glass-card" id="runner-trajectory-card">
+          <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-white/[0.06] pb-3 mb-3 gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base text-accent">⚛</span>
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">3D Atomic Trajectory Player (Instanced WebGL2)</h3>
+                <div class="text-[10px] text-gray-400 font-mono">Real-time GPU instancing · Viridis physical fields · 60fps PBC motion</div>
+              </div>
+            </div>
+
+            <!-- Direct Simulation Runner Controls Inside 3D Player -->
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Persistent Simulation vs Interpolation Indicator (D3) -->
+              <div id="traj-timestep-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-[0_0_8px_rgba(52,211,153,0.2)]">
+                ● Timestep 0 (SIMULATED)
+              </div>
+              <span class="text-xs font-mono text-gray-400" id="traj-frame-counter">Frame 0 / 0</span>
+
+              <!-- Preset selector -->
+              <select id="traj-sim-preset-select" class="input-glass text-xs py-1 px-2.5 font-mono max-w-[200px]" title="Select a simulation preset to run directly in WebGL">
+                <option value="lj_benchmark">LJ Fluid (256 atoms, Reduced)</option>
+                <option value="molten_al">Molten Aluminum (1000 K, EAM)</option>
+                <option value="water_liquid">SPC/E Water (300 K, SHAKE)</option>
+                <option value="studio_script">Active Script Studio Code</option>
+              </select>
+
+              <!-- Direct Run Button -->
+              <button id="btn-traj-run-sim" class="btn btn-primary btn-sm bg-gradient-to-r from-accent to-pink-500 hover:brightness-110 text-white font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(224,64,251,0.35)]" onclick="runWebGL3DRunnerSimulation()">
+                <span>🚀 Run WebGL Simulation</span>
+              </button>
+
+              <!-- Expand Canvas Button -->
+              <button id="btn-traj-expand" class="btn btn-secondary btn-sm" onclick="toggleTrajViewerExpand()" title="Expand / Shrink 3D Canvas">
+                <span id="traj-expand-icon">⛶ Expand</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Color Mode, Normalization, Camera & Speed Controls Bar -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 mb-2.5 px-1">
+            <div class="flex items-center gap-1.5 text-xs font-mono" id="traj-color-modes">
+              <span class="text-gray-400 text-[11px] uppercase mr-1">Color:</span>
+              <button id="btn-color-element" class="pill-tab-btn active" onclick="setTrajColorMode('element')">Element (CPK)</button>
+              <button id="btn-color-ke" class="pill-tab-btn" onclick="setTrajColorMode('kinetic_energy')">Kinetic Energy</button>
+              <button id="btn-color-stress" class="pill-tab-btn" onclick="setTrajColorMode('von_mises_stress')">Von Mises Stress</button>
+            </div>
+
+            <div class="flex items-center gap-1.5 text-xs font-mono hidden" id="traj-norm-controls">
+              <span class="text-gray-400 text-[11px] uppercase mr-1">Scale:</span>
+              <button id="btn-norm-frame" class="pill-tab-btn active" onclick="setTrajNormMode('frame')">Frame Min/Max</button>
+              <button id="btn-norm-run" class="pill-tab-btn" onclick="setTrajNormMode('run')">Run Min/Max</button>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs font-mono">
+              <div class="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-lg border border-white/10">
+                <span class="text-[10px] text-gray-400 uppercase mr-1">Speed:</span>
+                <button class="text-[11px] px-1 text-gray-300 hover:text-white" onclick="setTrajSpeed(0.5, this)">0.5x</button>
+                <button class="text-[11px] px-1 text-accent font-bold" onclick="setTrajSpeed(1.0, this)">1x</button>
+                <button class="text-[11px] px-1 text-gray-300 hover:text-white" onclick="setTrajSpeed(2.0, this)">2x</button>
+                <button class="text-[11px] px-1 text-gray-300 hover:text-white" onclick="setTrajSpeed(4.0, this)">4x</button>
+              </div>
+              <button class="btn btn-secondary btn-sm text-[11px] py-0.5 px-2" onclick="resetTrajCamera()" title="Reset Camera Orbit & Zoom">
+                <span>⌂ Reset View</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- WebGL2 Canvas with Floating Scrub/Play Controls -->
+          <div id="traj-canvas-container" class="relative w-full rounded-xl overflow-hidden bg-black/70 border border-white/[0.08] shadow-2xl transition-all duration-300">
+            <canvas id="trajectory-canvas" class="w-full h-[520px] block cursor-grab active:cursor-grabbing"></canvas>
+            <div class="absolute bottom-3 left-4 right-4 bg-black/80 backdrop-blur-md px-4 py-2.5 rounded-xl flex items-center gap-3 border border-white/15 shadow-2xl">
+              <button id="traj-btn-play" class="btn btn-secondary btn-sm px-3" onclick="toggleTrajectoryPlay()">
+                <span id="traj-play-icon">▶ Play</span>
+              </button>
+              <input type="range" id="traj-scrubber" min="0" max="0" value="0" step="0.1" class="w-full accent-accent cursor-pointer" oninput="scrubTrajectory(this.value)">
+              <span class="text-xs font-mono text-gray-300 whitespace-nowrap min-w-[70px] text-right" id="traj-scrub-indicator">0 / 0</span>
+            </div>
+          </div>
+
+          <!-- Viridis Colorbar Legend (C3 & B3) -->
+          <div id="traj-colorbar-container" class="hidden mt-2.5 p-3 rounded-xl bg-black/40 border border-white/5 space-y-2 font-mono text-xs">
+            <div class="flex items-center justify-between text-[11px] text-gray-300">
+              <div class="flex items-center gap-2">
+                <span id="traj-colorbar-title" class="font-bold text-accent">Kinetic Energy</span>
+                <span id="traj-colorbar-norm-desc" class="text-gray-400 text-[10px]">(Frame Normalization)</span>
+              </div>
+              <div id="traj-colorbar-synthetic-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                ⚠️ SYNTHETIC FIELD DATA
+              </div>
+            </div>
+            <div class="relative w-full h-3 rounded-full overflow-hidden shadow-inner border border-white/10" style="background: linear-gradient(to right, #440154, #482878, #3e4a89, #31688e, #26828e, #1f9e89, #35b779, #6ece58, #b5de2b, #fde725);">
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-gray-400 font-mono">
+              <span id="traj-colorbar-min">0.00</span>
+              <span id="traj-colorbar-mid">0.50</span>
+              <span id="traj-colorbar-max">1.00</span>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Post-Run OVITO Structure & Coordination Analysis Card -->
+        <div class="glass-card hidden" id="runner-ovito-card">
+          <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-accent">🔬</span>
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">OVITO Structure & Coordination Analysis</h3>
+            </div>
+            <span class="badge badge-success text-[11px]">Render Complete</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div>
+              <img id="runner-ovito-image" class="w-full rounded-xl border border-white/10 shadow-lg object-cover" alt="OVITO Final Frame Render">
+            </div>
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold text-accent font-mono">COORDINATION NUMBER HISTOGRAM</h4>
+              <div id="runner-ovito-hist" class="space-y-1.5 text-xs font-mono text-gray-300 bg-black/40 p-3 rounded-lg border border-white/5 max-h-48 overflow-y-auto">
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="glass-card">
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
             <h3 class="text-sm font-bold text-white">Thermodynamic Time Series</h3>
@@ -478,7 +665,7 @@
               <button class="pill-tab-btn active" onclick="switchRunnerChartMode('Temp')">Temperature T(t)</button>
               <button class="pill-tab-btn" onclick="switchRunnerChartMode('Energy')">Energy E(t)</button>
               <button class="pill-tab-btn" onclick="switchRunnerChartMode('Press')">Pressure P(t)</button>
-              <button class="pill-tab-btn" onclick="switchRunnerChartMode('StressStrain')">Stress-Strain σ(ε)</button>
+              <button class="pill-tab-btn" onclick="switchRunnerChartMode('Density')">Density ρ(t)</button>
             </div>
           </div>
           <canvas id="runner-chart-canvas" width="900" height="380" class="w-full rounded-xl bg-black/40"></canvas>
@@ -487,26 +674,26 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- VIEW 5: 3D CRYSTAL LATTICE VISUALIZER                       -->
+    <!-- VIEW 5: 3D MOLECULAR & LIQUID STRUCTURE VISUALIZER          -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <section class="tab-view" id="tab-visualizer">
       <div class="grid-2">
         <div class="glass-card space-y-5">
           <div class="step-header">
-            <span class="step-badge">3D ATOM</span>
-            <span class="step-title">Crystal Lattice Controls</span>
+            <span class="step-badge">3D FLUID</span>
+            <span class="step-title">Liquid Structure Controls</span>
           </div>
 
           <div class="form-group">
-            <label class="block text-xs font-semibold text-gray-300 mb-2">Material Element</label>
+            <label class="block text-xs font-semibold text-gray-300 mb-2">System / Liquid</label>
             <select id="vis-mat-select" class="input-glass w-full" onchange="updateStandalone3D()">
-              <option value="Aluminum">Aluminum (Al) — FCC</option>
-              <option value="Copper">Copper (Cu) — FCC</option>
-              <option value="Silicon">Silicon (Si) — Diamond</option>
-              <option value="Iron">Iron (Fe) — BCC</option>
-              <option value="Nickel">Nickel (Ni) — FCC</option>
-              <option value="Argon">Argon (Ar) — FCC</option>
-              <option value="LJ">Lennard-Jones Fluid</option>
+              <option value="Water">Water (H2O) — Molecular Liquid</option>
+              <option value="Argon">Argon (Ar) — Liquid Noble Gas</option>
+              <option value="LJ">Lennard-Jones Liquid Fluid</option>
+              <option value="Aluminum">Molten Aluminum (Al)</option>
+              <option value="Copper">Molten Copper (Cu)</option>
+              <option value="Iron">Molten Iron (Fe)</option>
+              <option value="Nickel">Molten Nickel (Ni)</option>
             </select>
           </div>
 
@@ -534,6 +721,13 @@
               <button class="btn btn-secondary btn-sm" onclick="adjustStandaloneZoom(1.25)">⊕ Zoom In</button>
               <button class="btn btn-secondary btn-sm" onclick="adjustStandaloneZoom(0.8)">⊖ Zoom Out</button>
             </div>
+          </div>
+
+          <div class="pt-3 border-t border-white/[0.06] space-y-2">
+            <button class="btn btn-primary w-full py-2.5 font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-accent to-pink-500 hover:brightness-110 shadow-[0_0_20px_rgba(224,64,251,0.3)] text-white text-xs" onclick="launchVisualizerInWebGLRunner()">
+              <span>🚀 Simulate This in WebGL2 Runner</span>
+            </button>
+            <p class="text-[10px] text-gray-400 text-center font-mono">Synthesizes script and streams live WebGL2 trajectory & terminal mirror</p>
           </div>
         </div>
 
@@ -723,9 +917,43 @@
     </div>
   </div>
 
+  <!-- Gemini API Key Modal -->
+  <div id="api-key-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999] hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-md w-full p-6 space-y-4 rounded-2xl border border-accent/40 shadow-2xl relative bg-[#130826]/95">
+      <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span class="text-accent text-lg">✨</span> Google Cloud Gemini Setup
+        </h3>
+        <button onclick="closeApiKeyModal()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-gray-300 leading-relaxed">
+        The research assistant uses Google Cloud Gemini (<code class="text-accent font-mono">gemini-2.5-flash</code>) for dynamic molecular dynamics script synthesis, natural language reasoning, and parameter extraction.
+      </p>
+      <div class="space-y-2">
+        <label class="text-xs font-semibold text-gray-200">Gemini API Key</label>
+        <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-xs text-white font-mono focus:border-accent focus:outline-none transition-colors">
+        <p class="text-[11px] text-gray-400">
+          Get a free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="text-accent underline hover:text-white">Google AI Studio</a>. Saved securely to your local environment.
+        </p>
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <span id="api-key-test-status" class="text-xs font-mono text-gray-400"></span>
+        <div class="flex items-center gap-2">
+          <button onclick="closeApiKeyModal()" class="btn btn-secondary btn-sm">Cancel</button>
+          <button onclick="saveApiKey()" id="btn-save-key" class="btn btn-primary btn-sm bg-accent hover:bg-accent/80 text-white font-bold px-4">
+            <span>Connect & Save</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-6 right-6 flex flex-col gap-3 z-[10000]"></div>
 
+  <script src="trajectory-viewer.js"></script>
   <script src="app.js"></script>
+  <script src="param-runs.js"></script>
 </body>
 </html>
+

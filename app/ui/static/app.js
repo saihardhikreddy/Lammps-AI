@@ -2,6 +2,23 @@
  * LAMMPS AI Research Suite — Client Logic, WebGL2 Liquid Sphere, Drag & Drop Files & Motion Primitives
  */
 
+// Attach the per-session CSRF token (minted into index.html by the local server) to every
+// same-origin API request. The server rejects state-changing requests without it.
+(function installSessionTokenFetch() {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        const url = typeof input === "string" ? input : (input && input.url) || "";
+        const sameOriginApi = url.startsWith("/api/") || url.startsWith(window.location.origin + "/api/");
+        if (sameOriginApi) {
+            init = Object.assign({}, init || {});
+            const headers = new Headers(init.headers || {});
+            if (!headers.has("X-Session-Token")) headers.set("X-Session-Token", window.__SESSION_TOKEN__ || "");
+            init.headers = headers;
+        }
+        return nativeFetch(input, init);
+    };
+})();
+
 let activeConversationId = null;
 let currentPendingScript = null;
 let currentAssumptions = [];
@@ -87,6 +104,9 @@ function initTopSlidingDock() {
 
         if (tabId === "tab-visualizer") {
             setTimeout(updateStandalone3D, 50);
+        }
+        if (tabId === "tab-runner") {
+            setTimeout(initTrajViewerIfNeeded, 50);
         }
 
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -403,14 +423,89 @@ async function fetchSystemStatus() {
         const res = await fetch("/api/status", { method: "POST" });
         const data = await res.json();
         const statusText = document.getElementById("api-status-text");
-        if (data.lammps && data.lammps.detected) {
-            statusText.innerText = "FastAPI & LAMMPS Ready";
-            statusText.style.color = "#34d399";
-        } else {
-            statusText.innerText = "FastAPI Ready (Gemma 4 Mode)";
+        const statusDot = document.getElementById("api-status-dot");
+        if (statusText) {
+            if (data.gemini_ready) {
+                statusText.innerText = `● Gemini Online (${data.gemini_model || "gemini-2.5-flash"})`;
+                statusText.style.color = "#34d399";
+                if (statusDot) statusDot.style.background = "#34d399";
+            } else if (data.llm_available) {
+                statusText.innerText = `● LLM Online (${data.llm_model})`;
+                statusText.style.color = "#34d399";
+                if (statusDot) statusDot.style.background = "#34d399";
+            } else {
+                statusText.innerText = "⚠️ Gemini Key Needed";
+                statusText.style.color = "#fbbf24";
+                if (statusDot) statusDot.style.background = "#fbbf24";
+            }
         }
     } catch (e) {
         console.warn("Status check:", e);
+    }
+}
+
+function openApiKeyModal() {
+    const modal = document.getElementById("api-key-modal");
+    if (modal) {
+        modal.classList.remove("hidden");
+        const input = document.getElementById("input-gemini-key");
+        if (input) setTimeout(() => input.focus(), 50);
+    }
+}
+
+function closeApiKeyModal() {
+    const modal = document.getElementById("api-key-modal");
+    if (modal) modal.classList.add("hidden");
+    const status = document.getElementById("api-key-test-status");
+    if (status) status.innerText = "";
+}
+
+async function saveApiKey() {
+    const input = document.getElementById("input-gemini-key");
+    const status = document.getElementById("api-key-test-status");
+    const btn = document.getElementById("btn-save-key");
+    const key = input?.value?.trim() || "";
+
+    if (!key || key.length < 10) {
+        if (status) {
+            status.innerText = "Please enter a valid key";
+            status.style.color = "#f87171";
+        }
+        return;
+    }
+
+    if (btn) btn.innerText = "Connecting...";
+    if (status) {
+        status.innerText = "Verifying...";
+        status.style.color = "#94a3b8";
+    }
+
+    try {
+        const res = await fetch("/api/key/set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: key, model: "gemini-2.5-flash" })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast("Gemini API Key connected successfully!", "success");
+            closeApiKeyModal();
+            fetchSystemStatus();
+        } else {
+            if (status) {
+                status.innerText = data.detail || "Connection failed";
+                status.style.color = "#f87171";
+            }
+            showToast("Failed to save API key", "error");
+        }
+    } catch (err) {
+        if (status) {
+            status.innerText = "Network error";
+            status.style.color = "#f87171";
+        }
+        showToast("Error updating API key", "error");
+    } finally {
+        if (btn) btn.innerText = "Connect & Save";
     }
 }
 
@@ -436,13 +531,13 @@ function startNewConversation() {
             What material, ensemble, or physical process would you like to simulate today?
           </p>
           <div class="grid-2">
-            <button class="quick-prompt-card" onclick="askPredefined('Simulate melting of aluminum using an NVT ensemble')">
+            <button class="quick-prompt-card" onclick="askPredefined('Simulate molten aluminum at 1000 K using an NVT ensemble')">
               <span class="text-xl">⚛</span>
-              <div class="text-left"><div class="text-xs font-bold text-white">Aluminum Melting</div><div class="text-[11px] text-gray-400">NVT ensemble + EAM potential</div></div>
+              <div class="text-left"><div class="text-xs font-bold text-white">Molten Aluminum</div><div class="text-[11px] text-gray-400">Post-melt NVT liquid equilibration</div></div>
             </button>
-            <button class="quick-prompt-card" onclick="askPredefined('Simulate tensile deformation of Copper')">
-              <span class="text-xl">💥</span>
-              <div class="text-left"><div class="text-xs font-bold text-white">Copper Tensile</div><div class="text-[11px] text-gray-400">Uniaxial strain test</div></div>
+            <button class="quick-prompt-card" onclick="askPredefined('Simulate rigid SPC/E water at 300 K in NVT ensemble')">
+              <span class="text-xl">💧</span>
+              <div class="text-left"><div class="text-xs font-bold text-white">SPC/E Water Liquid</div><div class="text-[11px] text-gray-400">Rigid SHAKE + Coulombic solver</div></div>
             </button>
           </div>
         </div>
@@ -456,8 +551,109 @@ function askPredefined(text) {
 }
 
 // =========================================================================
-// AI Chat Engine
+// AI Chat Engine & Thinking Animation
 // =========================================================================
+
+let thinkingIntervalId = null;
+
+function showThinkingIndicator() {
+    const viewport = document.getElementById("chat-messages");
+    if (!viewport) return;
+
+    removeThinkingIndicator();
+
+    const div = document.createElement("div");
+    div.className = "flex justify-start max-w-2xl";
+    div.id = "chat-thinking-indicator";
+    div.innerHTML = `
+        <div class="thinking-card w-full p-4 space-y-3">
+          <div class="thinking-shimmer-bar"></div>
+          
+          <div class="flex items-center justify-between border-b border-white/[0.08] pb-2">
+            <div class="flex items-center gap-2.5">
+              <div class="pulse-orb"></div>
+              <span class="text-xs font-bold text-white tracking-wide">LAMMPS Assistant</span>
+              <span class="text-[10px] font-mono text-purple-300 bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span>✨</span> Cloud Gemini
+              </span>
+            </div>
+            <div class="thinking-dots-wave">
+              <span class="thinking-dot"></span>
+              <span class="thinking-dot"></span>
+              <span class="thinking-dot"></span>
+              <span class="thinking-dot"></span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3.5 py-1">
+            <div class="thinking-atom-spinner flex-shrink-0">
+              <div class="thinking-atom-ring"></div>
+              <div class="thinking-atom-ring"></div>
+              <div class="thinking-atom-core"></div>
+            </div>
+            <div class="space-y-0.5 min-w-0 flex-1">
+              <div class="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+                <span>Reasoning over liquid-state physics</span>
+                <span class="inline-block animate-pulse text-accent">...</span>
+              </div>
+              <div class="thinking-step-text truncate" id="thinking-step-label">
+                Analyzing simulation intent & material parameters...
+              </div>
+            </div>
+          </div>
+        </div>
+    `;
+
+    viewport.appendChild(div);
+    viewport.scrollTop = viewport.scrollHeight;
+
+    const sendBtn = document.getElementById("btn-send");
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.classList.add("opacity-70", "cursor-not-allowed");
+        sendBtn.innerHTML = `
+          <span class="inline-block animate-spin text-sm">⚛</span>
+          <span>Thinking...</span>
+        `;
+    }
+
+    const steps = [
+        "Analyzing simulation intent & material parameters...",
+        "Querying Google Cloud Gemini (gemini-2.5-flash)...",
+        "Retrieving liquid potential styles & ensemble constraints...",
+        "Formulating molecular dynamics input syntax...",
+        "Validating numerical stability & physical parameters..."
+    ];
+    let stepIndex = 0;
+    thinkingIntervalId = setInterval(() => {
+        stepIndex = (stepIndex + 1) % steps.length;
+        const label = document.getElementById("thinking-step-label");
+        if (label) {
+            label.style.opacity = "0";
+            setTimeout(() => {
+                label.innerText = steps[stepIndex];
+                label.style.opacity = "1";
+            }, 180);
+        }
+    }, 1500);
+}
+
+function removeThinkingIndicator() {
+    if (thinkingIntervalId) {
+        clearInterval(thinkingIntervalId);
+        thinkingIntervalId = null;
+    }
+    const indicator = document.getElementById("chat-thinking-indicator");
+    if (indicator) {
+        indicator.remove();
+    }
+    const sendBtn = document.getElementById("btn-send");
+    if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.classList.remove("opacity-70", "cursor-not-allowed");
+        sendBtn.innerHTML = `<span>Send ⚡</span>`;
+    }
+}
 
 async function submitUserMessage() {
     const promptInput = document.getElementById("user-prompt");
@@ -473,6 +669,8 @@ async function submitUserMessage() {
     appendUserMessage(text);
     if (promptInput) promptInput.value = "";
 
+    showThinkingIndicator();
+
     try {
         const res = await fetch("/api/chat", {
             method: "POST",
@@ -485,10 +683,14 @@ async function submitUserMessage() {
 
         const data = await res.json();
         activeConversationId = data.conversation_id;
+        removeThinkingIndicator();
         appendAssistantMessage(data);
         loadConversations();
     } catch (err) {
+        removeThinkingIndicator();
         showToast("Error communicating with assistant", "error");
+    } finally {
+        removeThinkingIndicator();
     }
 }
 
@@ -615,7 +817,9 @@ function generateClientScript(p) {
     else if (p.ensemble === "NPT") fixLine = `fix             1 all npt temp ${p.temp_start} ${p.temp_target} 0.1 iso 0.0 0.0 1.0`;
     else fixLine = `fix             1 all nvt temp ${p.temp_start} ${p.temp_target} 0.1`;
 
-    return `# ${p.material} Crystal Simulation (${p.ensemble} Ensemble)
+    return `# ${p.material}: ${p.temp_start} K -> ${p.temp_target} K heating run (${p.ensemble}), starting from a crystal
+# NOTE: a single short ramp from a perfect crystal does not guarantee a liquid; a periodic
+# crystal superheats well past T_m. Ask the assistant for a "molten" script for a full melt protocol.
 units           metal
 boundary        p p p
 atom_style      atomic
@@ -646,8 +850,30 @@ run             ${p.steps}
 }
 
 // =========================================================================
-// Script Doctor & Preset Loader
+// Diagnostic Error Analyzer & Script Doctor
 // =========================================================================
+
+function openErrorAnalyzer() {
+    activateTab("tab-studio");
+    switchStudioSubtab("studio-doctor");
+    const input = document.getElementById("doctor-input");
+    if (input && !input.value.trim()) {
+        loadDoctorPreset("lost_atoms");
+    }
+    const container = document.getElementById("studio-doctor");
+    if (container) container.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openScriptDoctor() {
+    activateTab("tab-studio");
+    switchStudioSubtab("studio-doctor");
+    const input = document.getElementById("doctor-input");
+    if (input && !input.value.trim()) {
+        loadDoctorPreset("timestep");
+    }
+    const container = document.getElementById("studio-doctor");
+    if (container) container.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function loadDoctorPreset(type) {
     const input = document.getElementById("doctor-input");
@@ -750,89 +976,254 @@ async function executeCustomizedSimulation() {
     executeFromChat(script);
 }
 
-async function executeFromChat(script) {
+async function executeFromChat(script, startRun) {
     activateTab("tab-runner");
     const statusPill = document.getElementById("runner-status-pill");
     const outContainer = document.getElementById("runner-output-container");
+    const terminalPre = document.getElementById("runner-terminal-pre");
+    const terminalStatus = document.getElementById("runner-terminal-status");
+    const syntheticBanner = document.getElementById("runner-synthetic-banner");
+    const ovitoCard = document.getElementById("runner-ovito-card");
 
     statusPill.className = "badge badge-info";
     statusPill.innerText = "RUNNING";
+    // Reset the synthetic-data banner; it is re-shown only if this run's handshake says so
+    if (syntheticBanner) syntheticBanner.classList.add("hidden");
 
-    // Molecular Skeleton Animation Loading Screen
+    if (terminalPre) terminalPre.innerText = "┌──(lammps㉿wsl2)-[~/simulations]\n└─$ lmp -in in.run -log log.lammps\n[Live stdout mirror connected via Server-Sent Events]\n══════════════════════════════════════════════════════════════════════════════════════════════\n";
+    if (terminalStatus) terminalStatus.innerText = "Running...";
+    if (syntheticBanner) syntheticBanner.classList.add("hidden");
+    if (ovitoCard) ovitoCard.classList.add("hidden");
+
+    const btnSim = document.getElementById("btn-traj-run-sim");
+    if (btnSim) {
+        btnSim.disabled = true;
+        btnSim.innerHTML = `<span class="inline-block animate-spin">⚡</span><span>Running Live...</span>`;
+    }
+
+    // Initialize WebGL2 Trajectory Viewer if needed
+    initTrajViewerIfNeeded();
+    if (window.activeTrajViewer) {
+        window.activeTrajViewer.reset();
+        const playIcon = document.getElementById("traj-play-icon");
+        if (playIcon) playIcon.innerText = "▶ Play";
+    }
+
     outContainer.innerHTML = `
-        <div class="molecular-loader-stage flex flex-col items-center justify-center py-10 space-y-4">
-            <div class="molecular-skeleton-spinner relative w-24 h-24 flex items-center justify-center">
+        <div class="molecular-loader-stage flex flex-col items-center justify-center py-8 space-y-4">
+            <div class="molecular-skeleton-spinner relative w-20 h-20 flex items-center justify-center">
                 <div class="mol-ring ring-1"></div>
                 <div class="mol-ring ring-2"></div>
                 <div class="mol-ring ring-3"></div>
                 <div class="atom-center">⚛</div>
-                <div class="atom-node node-1"></div>
-                <div class="atom-node node-2"></div>
-                <div class="atom-node node-3"></div>
-                <div class="atom-node node-4"></div>
             </div>
-            <div class="text-center space-y-1.5">
-                <div class="text-sm font-bold text-white font-mono flex items-center justify-center gap-2">
+            <div class="text-center space-y-1">
+                <div class="text-xs font-bold text-white font-mono flex items-center justify-center gap-2">
                     <span class="animate-pulse text-accent">⚡</span>
-                    <span>Integrating Molecular Dynamics Trajectory...</span>
+                    <span id="runner-stage-text">Initializing Molecular Dynamics Engine...</span>
                 </div>
-                <div class="text-[11px] text-gray-400 font-mono">100% Local GPU/CPU Sandbox · Verlet Numerical Integration</div>
+                <div class="text-[11px] text-gray-400 font-mono">Live stream connected via Server-Sent Events</div>
             </div>
         </div>
     `;
 
     try {
-        const res = await fetch("/api/run", {
+        const sessionToken = window.__SESSION_TOKEN__ || "";
+        // startRun (optional): starts the run another way, e.g. the Parameter Runs tab
+        const res = startRun ? await startRun(sessionToken) : await fetch("/api/run", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ script: script })
+            headers: { 
+                "Content-Type": "application/json",
+                "X-Session-Token": sessionToken
+            },
+            body: JSON.stringify({ script: script, session_token: sessionToken })
         });
         const data = await res.json();
 
-        if (data.success) {
-            statusPill.className = "badge badge-success";
-            statusPill.innerText = "COMPLETED";
-
-            if (data.thermo && data.thermo.parsed) {
-                currentPlotData = data.thermo.time_series;
-                let headerInfo = `
-                    <div class="mb-3 flex items-center justify-between text-xs font-mono border-b border-white/10 pb-2">
-                        <span class="text-emerald-400 font-bold">✓ Simulation Completed Successfully (${data.runtime_seconds}s)</span>
-                        <span class="text-gray-400 font-bold">${data.engine || "Local LAMMPS Engine"}</span>
-                    </div>
-                `;
-                outContainer.innerHTML = headerInfo + renderThermoTable(data.thermo.summary);
-                drawRunnerChart(runnerChartMode);
-            } else {
-                outContainer.innerHTML = `
-                    <div class="mb-2 text-xs font-mono text-emerald-400 font-bold">✓ Execution Succeeded (${data.runtime_seconds}s)</div>
-                    <pre class="code-block text-xs">${escapeHtml(data.stdout || "Simulation completed.")}</pre>
-                `;
-            }
-            showToast("Simulation completed successfully!", "success");
-        } else {
+        if (!res.ok || !data.run_id) {
             statusPill.className = "badge badge-danger";
             statusPill.innerText = "FAILED";
             outContainer.innerHTML = `
-                <div class="space-y-3">
-                    <div class="text-xs font-bold text-red-400 font-mono flex items-center gap-2">
-                        <span>⚠️ Execution Terminated</span>
-                        <span class="text-gray-400 font-normal">(${data.runtime_seconds}s)</span>
-                    </div>
-                    <div class="text-xs text-red-300 font-mono bg-red-950/30 border border-red-500/30 rounded-lg p-3">
-                        ${escapeHtml(data.error || data.stderr || "Simulation could not complete.")}
-                    </div>
-                    ${data.stdout ? `<pre class="code-block text-xs text-gray-400 max-h-48 overflow-y-auto">${escapeHtml(data.stdout)}</pre>` : ''}
+                <div class="p-3 bg-red-950/30 border border-red-500/30 rounded-lg text-xs font-mono text-red-300">
+                    Execution error: ${escapeHtml(data.error || data.detail || "Unable to start simulation")}
                 </div>
             `;
-            showToast("Simulation run error: " + (data.error || "Failed"), "error");
+            showToast("Failed to start run: " + (data.error || "Error"), "error");
+            return;
         }
+
+        const runId = data.run_id;
+        const sseUrl = `/api/run/stream?run_id=${encodeURIComponent(runId)}&token=${encodeURIComponent(sessionToken)}`;
+        const es = new EventSource(sseUrl);
+
+        es.addEventListener("handshake", (e) => {
+            try {
+                const handshake = JSON.parse(e.data);
+                if (terminalStatus) terminalStatus.innerText = `Connected: ${handshake.engine}`;
+                if (handshake.is_synthetic && syntheticBanner) {
+                    syntheticBanner.classList.remove("hidden");
+                }
+                if (window.activeTrajViewer) {
+                    window.activeTrajViewer.setMetadata({
+                        ...(handshake.visual_metadata || {}),
+                        units: handshake.units,
+                        available_fields: handshake.available_fields,
+                        is_synthetic: handshake.is_synthetic
+                    });
+                }
+                updateTrajFieldModeButtons(handshake.available_fields, handshake.is_synthetic);
+            } catch (err) {
+                console.warn("Handshake parse error", err);
+            }
+        });
+
+        es.addEventListener("log", (e) => {
+            try {
+                const logData = JSON.parse(e.data);
+                if (terminalPre && logData.line) {
+                    terminalPre.innerText += logData.line + "\n";
+                    terminalPre.scrollTop = terminalPre.scrollHeight;
+                }
+            } catch (err) {
+                console.warn("Log parse error", err);
+            }
+        });
+
+        es.addEventListener("frame", (e) => {
+            try {
+                const frameData = JSON.parse(e.data);
+                if (window.activeTrajViewer) {
+                    window.activeTrajViewer.addFrame(frameData);
+                }
+            } catch (err) {
+                console.warn("Frame parse error", err);
+            }
+        });
+
+        es.addEventListener("done", (e) => {
+            es.close();
+            try {
+                const doneData = JSON.parse(e.data);
+                handleRunDone(doneData);
+            } catch (err) {
+                console.warn("Done parse error", err);
+            }
+        });
+
+        es.onerror = (err) => {
+            console.warn("SSE stream closed or error", err);
+            es.close();
+        };
+
     } catch (e) {
         statusPill.className = "badge badge-danger";
         statusPill.innerText = "ERROR";
         outContainer.innerHTML = `<div class="text-xs text-red-400 font-mono p-3">Communication Error: ${escapeHtml(e.message)}</div>`;
         showToast("Communication error: " + e.message, "error");
     }
+}
+
+function handleRunDone(data) {
+    const statusPill = document.getElementById("runner-status-pill");
+    const outContainer = document.getElementById("runner-output-container");
+    const terminalStatus = document.getElementById("runner-terminal-status");
+    const syntheticBanner = document.getElementById("runner-synthetic-banner");
+    const ovitoCard = document.getElementById("runner-ovito-card");
+
+    if (data.is_synthetic && syntheticBanner) {
+        syntheticBanner.classList.remove("hidden");
+    }
+
+    if (data.status === "completed") {
+        statusPill.className = "badge badge-success";
+        statusPill.innerText = "COMPLETED";
+        if (terminalStatus) terminalStatus.innerText = `Completed in ${data.runtime_seconds}s`;
+
+        if (data.thermo && data.thermo.parsed) {
+            currentPlotData = data.thermo.time_series;
+            let headerInfo = `
+                <div class="mb-3 flex items-center justify-between text-xs font-mono border-b border-white/10 pb-2">
+                    <span class="text-emerald-400 font-bold">✓ Simulation Completed (${data.runtime_seconds}s)</span>
+                    <span class="text-gray-400 font-bold">${data.engine || "Local LAMMPS Engine"}</span>
+                </div>
+            `;
+            outContainer.innerHTML = headerInfo + renderThermoTable(data.thermo.summary);
+            drawRunnerChart(runnerChartMode);
+        } else {
+            outContainer.innerHTML = `
+                <div class="mb-2 text-xs font-mono text-emerald-400 font-bold">✓ Execution Succeeded (${data.runtime_seconds}s)</div>
+                <div class="text-xs text-gray-400 font-mono">Output logged to live mirror above.</div>
+            `;
+        }
+
+        // Render OVITO card if available
+        if (data.render_available && data.render_url && ovitoCard) {
+            ovitoCard.classList.remove("hidden");
+            const img = document.getElementById("runner-ovito-image");
+            if (img) img.src = data.render_url;
+            const histEl = document.getElementById("runner-ovito-hist");
+            if (histEl && data.coordination_histogram) {
+                let html = "<div class='grid grid-cols-4 gap-2 text-center'>";
+                for (const [cn, count] of Object.entries(data.coordination_histogram)) {
+                    html += `<div class='bg-white/5 p-1.5 rounded'><div class='text-accent font-bold'>CN ${cn}</div><div class='text-gray-300'>${count}</div></div>`;
+                }
+                html += "</div>";
+                histEl.innerHTML = html;
+            }
+        }
+
+        const btnSim = document.getElementById("btn-traj-run-sim");
+        if (btnSim) {
+            btnSim.disabled = false;
+            btnSim.innerHTML = `<span>🚀 Run WebGL Simulation</span>`;
+        }
+
+        if (window.activeTrajViewer && window.activeTrajViewer.frames.length > 1) {
+            window.activeTrajViewer.play();
+            const playIcon = document.getElementById("traj-play-icon");
+            if (playIcon) playIcon.innerText = "⏸ Pause";
+        }
+
+        showToast("Simulation completed successfully!", "success");
+    } else {
+        const btnSim = document.getElementById("btn-traj-run-sim");
+        if (btnSim) {
+            btnSim.disabled = false;
+            btnSim.innerHTML = `<span>🚀 Run WebGL Simulation</span>`;
+        }
+        statusPill.className = "badge badge-danger";
+        statusPill.innerText = (data.status || "FAILED").toUpperCase();
+        if (terminalStatus) terminalStatus.innerText = `Failed: ${data.error || "Error"}`;
+        outContainer.innerHTML = `
+            <div class="space-y-3">
+                <div class="text-xs font-bold text-red-400 font-mono flex items-center gap-2">
+                    <span>⚠️ Execution Terminated</span>
+                    <span class="text-gray-400 font-normal">(${data.runtime_seconds || 0}s)</span>
+                </div>
+                <div class="text-xs text-red-300 font-mono bg-red-950/30 border border-red-500/30 rounded-lg p-3">
+                    ${escapeHtml(data.error || "Simulation could not complete.")}
+                </div>
+            </div>
+        `;
+        showToast("Simulation run error: " + (data.error || "Failed"), "error");
+    }
+}
+
+function toggleTrajectoryPlay() {
+    if (!window.activeTrajViewer) return;
+    window.activeTrajViewer.togglePlay();
+    const icon = document.getElementById("traj-play-icon");
+    if (icon) {
+        icon.innerText = window.activeTrajViewer.isPlaying ? "⏸ Pause" : "▶ Play";
+    }
+}
+
+function scrubTrajectory(val) {
+    if (!window.activeTrajViewer) return;
+    window.activeTrajViewer.pause();
+    window.activeTrajViewer.seek(parseInt(val, 10));
+    const icon = document.getElementById("traj-play-icon");
+    if (icon) icon.innerText = "▶ Play";
 }
 
 function switchRunnerChartMode(mode) {
@@ -857,9 +1248,8 @@ function drawRunnerChart(mode) {
     if (mode === "Temp") { yData = currentPlotData["Temp"] || []; lineColor = "#ff4081"; }
     else if (mode === "Energy") { yData = currentPlotData["TotEng"] || currentPlotData["PotEng"] || []; lineColor = "#38bdf8"; }
     else if (mode === "Press") { yData = currentPlotData["Press"] || []; lineColor = "#34d399"; }
-    else if (mode === "StressStrain") {
-        xData = currentPlotData["v_strain"] || [];
-        yData = currentPlotData["v_stress"] || [];
+    else if (mode === "Density") {
+        yData = currentPlotData["Density"] || currentPlotData["Density"] || currentPlotData["vol"] || currentPlotData["Volume"] || [];
         lineColor = "#fbbf24";
     }
 
@@ -907,7 +1297,7 @@ function drawRunnerChart(mode) {
 }
 
 // =========================================================================
-// 3D Orbital Crystal Lattice Visualizer
+// 3D Orbital Liquid & Molecular Structure Visualizer
 // =========================================================================
 
 function updateStandalone3D() {
@@ -924,38 +1314,145 @@ function updateStandalone3D() {
     document.getElementById("vis-temp-display").innerText = `${temp} K`;
     document.getElementById("vis-grid-display").innerText = `${grid} × ${grid} × ${grid}`;
 
-    const elemMap = {
-        "Aluminum": "Al", "Copper": "Cu", "Silicon": "Si",
-        "Iron": "Fe", "Nickel": "Ni", "Argon": "Ar", "LJ": "LJ"
+    const meltingPoints = {
+        "Water": 273.15, "Argon": 83.8, "LJ": 1.0,
+        "Aluminum": 933.47, "Copper": 1357.77, "Iron": 1811.0, "Nickel": 1728.0
     };
+    const tmelt = meltingPoints[mat] || 900.0;
+    const isMelted = temp >= tmelt || mat === "Water" || mat === "LJ" || mat === "Argon";
 
     const canvas = document.getElementById("standalone-vis-canvas");
     if (!canvas) return;
 
     orbit3D.atoms = [];
+    orbit3D.bonds = [];
     let atomCount = 0;
-    const spacing = 1.4;
-    const bound = Math.floor(grid / 2);
 
-    for (let x = -bound; x <= bound; x++) {
-        for (let y = -bound; y <= bound; y++) {
-            for (let z = -bound; z <= bound; z++) {
-                if ((Math.abs(x + y + z) % 2 === 0)) {
+    if (mat === "Water") {
+        // Molecular Liquid: H2O triplets with covalent bonds
+        const numMols = Math.max(8, grid * grid * 2);
+        const boxSpan = 2.4;
+        const spacing = (boxSpan * 2) / Math.cbrt(numMols);
+
+        let mIdx = 0;
+        const nSide = Math.ceil(Math.cbrt(numMols));
+        for (let x = 0; x < nSide; x++) {
+            for (let y = 0; y < nSide; y++) {
+                for (let z = 0; z < nSide; z++) {
+                    if (mIdx >= numMols) break;
+                    mIdx++;
+
+                    const ox = -boxSpan + (x + 0.5) * spacing + (Math.sin(x * 3 + y * 7 + z) * 0.15);
+                    const oy = -boxSpan + (y + 0.5) * spacing + (Math.cos(y * 5 + z * 3) * 0.15);
+                    const oz = -boxSpan + (z + 0.5) * spacing + (Math.sin(z * 4 + x * 2) * 0.15);
+
+                    // Oxygen atom
                     atomCount++;
-                    const ke = (3 / 2) * 8.617e-5 * temp;
+                    const oId = atomCount;
                     orbit3D.atoms.push({
-                        id: atomCount,
-                        x: x * spacing,
-                        y: y * spacing,
-                        z: z * spacing,
-                        realX: (x * 4.05).toFixed(2),
-                        realY: (y * 4.05).toFixed(2),
-                        realZ: (z * 4.05).toFixed(2),
-                        element: elemMap[mat] || "Al",
-                        material: mat,
+                        id: oId,
+                        x: ox, y: oy, z: oz,
+                        baseX: ox, baseY: oy, baseZ: oz,
+                        realX: (ox * 3.5).toFixed(2), realY: (oy * 3.5).toFixed(2), realZ: (oz * 3.5).toFixed(2),
+                        element: "O", material: "Water (H2O)", role: "Oxygen (Center)",
+                        color: "#ef4444", radiusScale: 1.15,
                         temp: temp.toFixed(1),
-                        ke: ke.toFixed(4)
+                        ke: ((3 / 2) * 8.617e-5 * temp).toFixed(4)
                     });
+
+                    // Random orientation for the H2O triangle
+                    const ang1 = mIdx * 1.618;
+                    const ang2 = mIdx * 2.718;
+                    const hDist = 0.35; // bond length scaled for visualization
+                    const h1x = ox + hDist * Math.cos(ang1);
+                    const h1y = oy + hDist * Math.sin(ang1);
+                    const h1z = oz + hDist * 0.3;
+
+                    const h2x = ox + hDist * Math.cos(ang1 + 1.82); // ~104.5 deg angle
+                    const h2y = oy + hDist * Math.sin(ang1 + 1.82);
+                    const h2z = oz - hDist * 0.2;
+
+                    // Hydrogen 1
+                    atomCount++;
+                    const h1Id = atomCount;
+                    orbit3D.atoms.push({
+                        id: h1Id,
+                        x: h1x, y: h1y, z: h1z,
+                        baseX: h1x, baseY: h1y, baseZ: h1z,
+                        realX: (h1x * 3.5).toFixed(2), realY: (h1y * 3.5).toFixed(2), realZ: (h1z * 3.5).toFixed(2),
+                        element: "H", material: "Water (H2O)", role: "Hydrogen (Rigid SHAKE)",
+                        color: "#f8fafc", radiusScale: 0.65,
+                        temp: temp.toFixed(1),
+                        ke: ((3 / 2) * 8.617e-5 * temp).toFixed(4)
+                    });
+
+                    // Hydrogen 2
+                    atomCount++;
+                    const h2Id = atomCount;
+                    orbit3D.atoms.push({
+                        id: h2Id,
+                        x: h2x, y: h2y, z: h2z,
+                        baseX: h2x, baseY: h2y, baseZ: h2z,
+                        realX: (h2x * 3.5).toFixed(2), realY: (h2y * 3.5).toFixed(2), realZ: (h2z * 3.5).toFixed(2),
+                        element: "H", material: "Water (H2O)", role: "Hydrogen (Rigid SHAKE)",
+                        color: "#f8fafc", radiusScale: 0.65,
+                        temp: temp.toFixed(1),
+                        ke: ((3 / 2) * 8.617e-5 * temp).toFixed(4)
+                    });
+
+                    // Covalent bonds O-H1 and O-H2
+                    orbit3D.bonds.push([oId, h1Id]);
+                    orbit3D.bonds.push([oId, h2Id]);
+                }
+            }
+        }
+    } else {
+        // Atomic Fluid / Molten Metal: FCC lattice below Tmelt; liquid disorder at or above Tmelt
+        const elemColors = {
+            "Argon": "#a855f7", "LJ": "#06b6d4",
+            "Aluminum": "#38bdf8", "Copper": "#f97316",
+            "Iron": "#eab308", "Nickel": "#10b981"
+        };
+        const elemSymbols = {
+            "Argon": "Ar", "LJ": "LJ",
+            "Aluminum": "Al", "Copper": "Cu",
+            "Iron": "Fe", "Nickel": "Ni"
+        };
+
+        const col = elemColors[mat] || "#a855f7";
+        const sym = elemSymbols[mat] || "M";
+        const bound = Math.floor(grid / 2);
+        const spacing = 1.35;
+
+        for (let x = -bound; x <= bound; x++) {
+            for (let y = -bound; y <= bound; y++) {
+                for (let z = -bound; z <= bound; z++) {
+                    if ((Math.abs(x + y + z) % 2 === 0)) {
+                        atomCount++;
+                        let ax = x * spacing;
+                        let ay = y * spacing;
+                        let az = z * spacing;
+
+                        // If melted into liquid phase, apply liquid disorder
+                        if (isMelted) {
+                            const disorder = Math.min(0.7, 0.2 + (temp - tmelt) * 0.0004);
+                            ax += (Math.sin(atomCount * 4.1 + x) - 0.5) * disorder;
+                            ay += (Math.cos(atomCount * 2.7 + y) - 0.5) * disorder;
+                            az += (Math.sin(atomCount * 3.3 + z) - 0.5) * disorder;
+                        }
+
+                        const phaseDesc = isMelted ? `Liquid (T >= Tmelt)` : `FCC Crystal (T < Tmelt)`;
+                        orbit3D.atoms.push({
+                            id: atomCount,
+                            x: ax, y: ay, z: az,
+                            baseX: ax, baseY: ay, baseZ: az,
+                            realX: (ax * 3.8).toFixed(2), realY: (ay * 3.8).toFixed(2), realZ: (az * 3.8).toFixed(2),
+                            element: sym, material: mat, role: phaseDesc,
+                            color: col, radiusScale: 1.0,
+                            temp: temp.toFixed(1),
+                            ke: ((3 / 2) * 8.617e-5 * temp).toFixed(4)
+                        });
+                    }
                 }
             }
         }
@@ -1034,7 +1531,7 @@ function render3DScene(canvas) {
         [0,4],[1,5],[2,6],[3,7]
     ];
 
-    ctx.strokeStyle = "rgba(224, 64, 251, 0.25)";
+    ctx.strokeStyle = "rgba(224, 64, 251, 0.22)";
     ctx.lineWidth = 1;
     edges.forEach(([i, j]) => {
         ctx.beginPath();
@@ -1043,21 +1540,45 @@ function render3DScene(canvas) {
         ctx.stroke();
     });
 
-    // Render sorted atoms
-    const projected = orbit3D.atoms.map(a => ({
-        ...a,
-        ...transform(a.x, a.y, a.z)
-    })).sort((a, b) => a.depth - b.depth);
+    // Map atoms to projected screen coordinates
+    const projectedMap = {};
+    const projected = orbit3D.atoms.map(a => {
+        const tr = transform(a.x, a.y, a.z);
+        const item = { ...a, ...tr };
+        projectedMap[a.id] = item;
+        return item;
+    });
+
+    // Draw Molecular Covalent Bonds (e.g. O-H in water)
+    if (orbit3D.bonds && orbit3D.bonds.length > 0) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+        ctx.lineWidth = Math.max(1.5, 2.5 * orbit3D.zoom);
+        orbit3D.bonds.forEach(([i, j]) => {
+            const p1 = projectedMap[i];
+            const p2 = projectedMap[j];
+            if (p1 && p2) {
+                ctx.beginPath();
+                ctx.moveTo(p1.screenX, p1.screenY);
+                ctx.lineTo(p2.screenX, p2.screenY);
+                ctx.stroke();
+            }
+        });
+    }
+
+    // Render depth-sorted atoms
+    projected.sort((a, b) => a.depth - b.depth);
 
     projected.forEach(atom => {
-        const radius = Math.max(4, 9 * (1 + atom.depth * 0.15) * orbit3D.zoom);
+        const baseR = (atom.radiusScale || 1.0) * 8.5;
+        const radius = Math.max(3, baseR * (1 + atom.depth * 0.15) * orbit3D.zoom);
+
         const grad = ctx.createRadialGradient(
-            atom.screenX - radius * 0.3, atom.screenY - radius * 0.3, radius * 0.1,
+            atom.screenX - radius * 0.35, atom.screenY - radius * 0.35, radius * 0.1,
             atom.screenX, atom.screenY, radius
         );
-        grad.addColorStop(0, "#ff4081");
-        grad.addColorStop(0.5, "#e040fb");
-        grad.addColorStop(1, "#6920df");
+        grad.addColorStop(0, "#ffffff");
+        grad.addColorStop(0.3, atom.color || "#e040fb");
+        grad.addColorStop(1, "#0a0512");
 
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -2089,5 +2610,311 @@ function askAiAboutCurrentFile() {
         textarea.value = promptText;
         textarea.focus();
     }
+}
+
+// =========================================================================
+// WebGL2 Trajectory Viewer Controls & Event Wiring
+// =========================================================================
+
+function initTrajViewerIfNeeded() {
+    if (!window.activeTrajViewer) {
+        const canvas = document.getElementById("trajectory-canvas");
+        if (canvas && window.TrajectoryViewer) {
+            window.activeTrajViewer = new TrajectoryViewer(canvas, {
+                onFrameChange: (idx, total) => {
+                    const counter = document.getElementById("traj-frame-counter");
+                    if (counter) counter.innerText = `Frame ${idx + 1} / ${total}`;
+                    const scrub = document.getElementById("traj-scrubber");
+                    if (scrub) {
+                        scrub.max = Math.max(0, total - 1);
+                        scrub.value = idx;
+                    }
+                    const scrubInd = document.getElementById("traj-scrub-indicator");
+                    if (scrubInd) scrubInd.innerText = `${idx + 1} / ${total}`;
+                },
+                onTimestepChange: (ts, isInterpolated) => {
+                    const badge = document.getElementById("traj-timestep-badge");
+                    if (badge) {
+                        if (isInterpolated) {
+                            badge.className = "px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-[0_0_8px_rgba(245,158,11,0.2)]";
+                            badge.innerText = `◌ Timestep ${ts} (INTERPOLATED)`;
+                        } else {
+                            badge.className = "px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-[0_0_8px_rgba(52,211,153,0.2)]";
+                            badge.innerText = `● Timestep ${ts} (SIMULATED)`;
+                        }
+                    }
+                },
+                onColorbarChange: (info) => {
+                    updateTrajColorbarUI(info);
+                }
+            });
+        }
+    }
+}
+
+function toggleTrajectoryPlay() {
+    if (!window.activeTrajViewer) return;
+    window.activeTrajViewer.togglePlay();
+    const playIcon = document.getElementById("traj-play-icon");
+    if (playIcon) {
+        playIcon.innerText = window.activeTrajViewer.isPlaying ? "⏸ Pause" : "▶ Play";
+    }
+}
+
+function scrubTrajectory(val) {
+    if (!window.activeTrajViewer) return;
+    const fIdx = parseFloat(val);
+    window.activeTrajViewer.pause();
+    window.activeTrajViewer.isLiveFollowing = false;
+    window.activeTrajViewer.seek(fIdx);
+    const playIcon = document.getElementById("traj-play-icon");
+    if (playIcon) playIcon.innerText = "▶ Play";
+}
+
+function setTrajColorMode(mode) {
+    if (!window.activeTrajViewer) return;
+    window.activeTrajViewer.setColorMode(mode);
+
+    const btnElem = document.getElementById("btn-color-element");
+    const btnKe = document.getElementById("btn-color-ke");
+    const btnStress = document.getElementById("btn-color-stress");
+    const normControls = document.getElementById("traj-norm-controls");
+
+    if (btnElem) btnElem.classList.toggle("active", mode === "element");
+    if (btnKe) btnKe.classList.toggle("active", mode === "kinetic_energy");
+    if (btnStress) btnStress.classList.toggle("active", mode === "von_mises_stress");
+
+    if (normControls) {
+        if (mode === "element") {
+            normControls.classList.add("hidden");
+        } else {
+            normControls.classList.remove("hidden");
+        }
+    }
+}
+
+function setTrajNormMode(norm) {
+    if (!window.activeTrajViewer) return;
+    window.activeTrajViewer.setNormMode(norm);
+
+    const btnFrame = document.getElementById("btn-norm-frame");
+    const btnRun = document.getElementById("btn-norm-run");
+    if (btnFrame) btnFrame.classList.toggle("active", norm === "frame");
+    if (btnRun) btnRun.classList.toggle("active", norm === "run");
+}
+
+function updateTrajFieldModeButtons(availableFields, isSynthetic) {
+    const btnKe = document.getElementById("btn-color-ke");
+    const btnStress = document.getElementById("btn-color-stress");
+    const fields = availableFields || ["element"];
+
+    const hasKe = fields.includes("kinetic_energy");
+    const hasStress = fields.includes("von_mises_stress");
+
+    if (btnKe) {
+        btnKe.disabled = !hasKe;
+        btnKe.style.opacity = hasKe ? "1" : "0.4";
+        btnKe.title = hasKe ? "Color atoms by kinetic energy" : "No kinetic energy data in trajectory dump";
+    }
+    if (btnStress) {
+        btnStress.disabled = !hasStress;
+        btnStress.style.opacity = hasStress ? "1" : "0.4";
+        btnStress.title = hasStress ? "Color atoms by Von Mises stress" : "No stress data in trajectory dump";
+    }
+}
+
+function updateTrajColorbarUI(info) {
+    const container = document.getElementById("traj-colorbar-container");
+    if (!container) return;
+
+    if (!info || info.colorMode === "element") {
+        container.classList.add("hidden");
+        return;
+    }
+
+    container.classList.remove("hidden");
+
+    const titleEl = document.getElementById("traj-colorbar-title");
+    const normDescEl = document.getElementById("traj-colorbar-norm-desc");
+    const synBadgeEl = document.getElementById("traj-colorbar-synthetic-badge");
+    const minEl = document.getElementById("traj-colorbar-min");
+    const midEl = document.getElementById("traj-colorbar-mid");
+    const maxEl = document.getElementById("traj-colorbar-max");
+
+    const isKe = (info.colorMode === "kinetic_energy");
+    const titleText = isKe ? "Kinetic Energy" : "Von Mises Stress";
+    const unit = info.unitSymbol ? ` [${info.unitSymbol}]` : "";
+
+    if (titleEl) titleEl.innerText = `${titleText}${unit}`;
+    if (normDescEl) {
+        normDescEl.innerText = (info.normMode === "run") ? "(Run Normalization)" : "(Frame Normalization)";
+    }
+    if (synBadgeEl) {
+        if (info.isSynthetic) {
+            synBadgeEl.classList.remove("hidden");
+        } else {
+            synBadgeEl.classList.add("hidden");
+        }
+    }
+
+    const fmt = (v) => {
+        if (v === null || v === undefined || isNaN(v)) return "0.00";
+        const absVal = Math.abs(v);
+        if (absVal >= 10000 || (absVal > 0 && absVal < 0.01)) {
+            return v.toExponential(2);
+        }
+        return v.toFixed(2);
+    };
+
+    if (minEl) minEl.innerText = `${fmt(info.min)} ${info.unitSymbol || ""}`;
+    if (midEl) midEl.innerText = `${fmt(info.mid)} ${info.unitSymbol || ""}`;
+    if (maxEl) maxEl.innerText = `${fmt(info.max)} ${info.unitSymbol || ""}`;
+}
+
+// =========================================================================
+// Big Linux Terminal Mirror Window Controls
+// =========================================================================
+
+function toggleTerminalExpand() {
+    const pre = document.getElementById("runner-terminal-pre");
+    const icon = document.getElementById("terminal-expand-icon");
+    if (!pre) return;
+    if (pre.classList.contains("expanded")) {
+        pre.classList.remove("expanded");
+        if (icon) icon.innerText = "⛶ Expand";
+    } else {
+        pre.classList.remove("compact");
+        pre.classList.add("expanded");
+        if (icon) icon.innerText = "↙ Collapse";
+    }
+}
+
+function setTerminalHeight(mode) {
+    const pre = document.getElementById("runner-terminal-pre");
+    const icon = document.getElementById("terminal-expand-icon");
+    if (!pre) return;
+    if (mode === "compact") {
+        pre.classList.remove("expanded");
+        pre.classList.toggle("compact");
+        if (icon) icon.innerText = "⛶ Expand";
+    }
+}
+
+function clearTerminalOutput() {
+    const pre = document.getElementById("runner-terminal-pre");
+    if (pre) {
+        pre.innerText = "┌──(lammps㉿wsl2)-[~/simulations]\n└─$ lmp -in in.run -log log.lammps\n[Console mirror cleared]\n";
+    }
+    showToast("Terminal console cleared");
+}
+
+function copyTerminalOutput() {
+    const pre = document.getElementById("runner-terminal-pre");
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.innerText)
+        .then(() => showToast("Terminal log copied to clipboard!", "success"))
+        .catch(() => showToast("Could not copy to clipboard", "error"));
+}
+
+// =========================================================================
+// 3D Atomic Trajectory Runner & Direct WebGL Simulation Launcher
+// =========================================================================
+
+function toggleTrajViewerExpand() {
+    const canvas = document.getElementById("trajectory-canvas");
+    const icon = document.getElementById("traj-expand-icon");
+    if (!canvas) return;
+    canvas.classList.toggle("expanded");
+    if (icon) {
+        icon.innerText = canvas.classList.contains("expanded") ? "↙ Collapse" : "⛶ Expand";
+    }
+    if (window.activeTrajViewer) {
+        window.activeTrajViewer._resize();
+    }
+}
+
+function resetTrajCamera() {
+    if (window.activeTrajViewer) {
+        window.activeTrajViewer.resetCamera();
+        showToast("3D camera orbit reset");
+    }
+}
+
+function setTrajSpeed(speed, btn) {
+    if (window.activeTrajViewer) {
+        window.activeTrajViewer.setPlaybackSpeed(speed);
+        const container = btn?.parentElement;
+        if (container) {
+            container.querySelectorAll("button").forEach(b => {
+                b.className = "text-[11px] px-1 text-gray-300 hover:text-white";
+            });
+            btn.className = "text-[11px] px-1 text-accent font-bold";
+        }
+    }
+}
+
+async function runWebGL3DRunnerSimulation(forcedPreset) {
+    const presetSelect = document.getElementById("traj-sim-preset-select");
+    const preset = forcedPreset || (presetSelect ? presetSelect.value : "lj_benchmark");
+    const btn = document.getElementById("btn-traj-run-sim");
+
+    let script = "";
+    if (["lj_benchmark", "molten_al", "water_liquid"].includes(preset)) {
+        // Presets come from the server's validated template generator (single source of truth)
+        try {
+            const res = await fetch("/api/preset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ preset })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            script = data.script;
+        } catch (err) {
+            showToast(`Could not load preset script: ${err.message}`, "error");
+            return;
+        }
+    } else {
+        const studioCode = document.getElementById("studio-code-input")?.value?.trim();
+        if (studioCode) {
+            script = studioCode;
+        } else {
+            script = generateClientScript(currentSimParams);
+        }
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="inline-block animate-spin">⚡</span><span>Running Live...</span>`;
+    }
+
+    const card = document.getElementById("runner-trajectory-card");
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    showToast(`Launching ${preset.replace(/_/g, ' ')} WebGL2 simulation...`, "info");
+    try {
+        await executeFromChat(script);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span>🚀 Run WebGL Simulation</span>`;
+        }
+    }
+}
+
+function launchVisualizerInWebGLRunner() {
+    const matSelect = document.getElementById("vis-mat-select");
+    const mat = matSelect ? matSelect.value : "LJ";
+
+    let preset = "lj_benchmark";
+    if (mat === "Water") preset = "water_liquid";
+    else if (mat === "LJ" || mat === "Argon") preset = "lj_benchmark";
+    else preset = "molten_al";
+
+    activateTab("tab-runner");
+    const sel = document.getElementById("traj-sim-preset-select");
+    if (sel) sel.value = preset;
+
+    runWebGL3DRunnerSimulation(preset);
 }
 

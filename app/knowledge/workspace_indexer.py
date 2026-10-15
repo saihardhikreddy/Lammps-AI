@@ -352,7 +352,17 @@ class WorkspaceProjectIndexer:
         target = (self.workspace_root / rel_path).resolve()
         try:
             # Ensure target is strictly inside workspace_root
-            target.relative_to(self.workspace_root)
+            rel = target.relative_to(self.workspace_root.resolve())
+            # Never hand out hidden files or credentials (.env, .git/*, keys), only file types
+            # the indexer itself would read
+            if any(part.startswith(".") for part in rel.parts):
+                return None
+            name = target.name.lower()
+            if any(tok in name for tok in ("secret", "credential", "id_rsa", "id_ed25519")) or \
+                    target.suffix.lower() in (".pem", ".key", ".p12", ".pfx", ".db", ".sqlite"):
+                return None
+            if not (target.suffix.lower() in self.SUPPORTED_EXTENSIONS or name.startswith(("in.", "data."))):
+                return None
             if target.exists() and target.is_file():
                 with open(target, "r", encoding="utf-8", errors="replace") as fh:
                     return fh.read()

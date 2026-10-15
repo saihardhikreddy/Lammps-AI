@@ -22,6 +22,11 @@ runner = SimulationRunner()
 thermo_parser = ThermoParser()
 workspace_indexer = router.workspace_indexer
 
+WORKSPACE_DISABLED = {
+    "error": "Workspace browsing is disabled in the public deployment. Run the app locally to index your own project folder."
+}
+
+
 class handler(BaseHTTPRequestHandler):
     """Vercel Serverless Request Handler."""
 
@@ -29,18 +34,13 @@ class handler(BaseHTTPRequestHandler):
         body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # Same-origin only: the static UI and this API share the deployment's origin
+        self.send_response(204)
         self.end_headers()
 
     def do_GET(self):
@@ -54,14 +54,12 @@ class handler(BaseHTTPRequestHandler):
                 "status": "online",
                 "environment": "Vercel Serverless Cloud",
                 "lammps": detection,
-                "offline": True,
+                "offline": not router.gemini_client.is_configured(),
                 "indexed_documents": len(router.retriever.chunks),
                 "workspace": workspace_indexer.get_workspace_summary()
             })
-        elif path == "/api/project/status":
-            self._send_json(workspace_indexer.get_workspace_summary())
-        elif path == "/api/project/tree":
-            self._send_json(workspace_indexer.get_workspace_tree())
+        elif path.startswith("/api/project/"):
+            self._send_json(WORKSPACE_DISABLED, 403)
         else:
             self._send_json({"error": f"Route not found: {path}"}, 404)
 
@@ -92,7 +90,9 @@ class handler(BaseHTTPRequestHandler):
                 script_path = tmp_dir / f"{run_id}.in"
                 script_path.write_text(script_content, encoding="utf-8")
 
-                result = runner.run_script(script_path, run_id)
+                # Serverless functions end with the response, so run synchronously. No LAMMPS
+                # binary exists on Vercel: this is the labelled synthetic engine, never real data.
+                result = runner.run_script(script_path, run_id, sync=True)
                 if result.get("log_file") and Path(result["log_file"]).exists():
                     log_text = Path(result["log_file"]).read_text(encoding="utf-8", errors="replace")
                     parsed_thermo = thermo_parser.parse_log_text(log_text)
@@ -100,20 +100,9 @@ class handler(BaseHTTPRequestHandler):
 
                 self._send_json(result)
 
-            elif path == "/api/project/open":
-                folder_path = data.get("folder_path", str(ROOT_DIR))
-                summary = workspace_indexer.open_workspace(folder_path)
-                self._send_json({"success": True, "summary": summary})
-
-            elif path == "/api/project/search":
-                query = data.get("query", "")
-                results = workspace_indexer.search_workspace(query)
-                self._send_json({"query": query, "results": results})
-
-            elif path == "/api/project/read":
-                rel_path = data.get("rel_path", "")
-                file_data = workspace_indexer.read_workspace_file(rel_path)
-                self._send_json(file_data)
+            elif path.startswith("/api/project/"):
+                # A public deployment must never browse or read its own filesystem
+                self._send_json(WORKSPACE_DISABLED, 403)
 
             else:
                 self._send_json({"error": f"Endpoint not found: {path}"}, 404)

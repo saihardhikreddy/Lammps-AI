@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Main Entrypoint for Local LAMMPS Research Assistant."""
 import sys
 from pathlib import Path
@@ -22,8 +23,13 @@ def main():
 
     status = detect_lammps()
     print(f"Status: {status['status_text']}")
-    print(f"Engine: 100% Offline Rule & Retrieval Engine (Zero Cloud APIs)")
+    print(f"Engine: Zero-Dependency Stdlib + Cloud Gemini & Liquid Physics RAG")
     print("-" * 65)
+
+    if "--check" in sys.argv or "-c" in sys.argv:
+        print(f"Executable: {status.get('executable')}")
+        print(f"Version: {status.get('version')}")
+        return
     
     start_server()
 
