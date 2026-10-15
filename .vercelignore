@@ -8,3 +8,8 @@ scratch/
 data/runs/
 .pytest_cache/
 *.log
+.env
+.env.*
+data/memory.db
+simulations/
+*.zip
