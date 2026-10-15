@@ -118,33 +118,9 @@ class ShahMDTransportAdapter(ResearchPackageAdapter):
         return prompt
 
     def calculate_diffusion_coefficient(self, time_ps: List[float], msd_angstrom2: List[float]) -> Dict[str, float]:
-        """Calculates self-diffusion coefficient (D) in m^2/s from Mean Squared Displacement slope (Einstein relation)."""
-        if len(time_ps) < 2 or len(msd_angstrom2) < 2:
-            return {"diffusion_coefficient_m2_s": 0.0, "slope": 0.0}
-
-        # Linear regression on linear regime (last 60% of data)
-        start_idx = int(len(time_ps) * 0.4)
-        x = time_ps[start_idx:]
-        y = msd_angstrom2[start_idx:]
-        n = len(x)
-
-        sum_x = sum(x)
-        sum_y = sum(y)
-        sum_xx = sum(xi * xi for xi in x)
-        sum_xy = sum(xi * yi for xi, yi in zip(x, y))
-
-        denom = (n * sum_xx - sum_x * sum_x)
-        slope = (n * sum_xy - sum_x * sum_y) / denom if denom != 0 else 0.0
-
-        # D = slope / 6 in Angstrom^2 / ps -> convert to m^2/s
-        # 1 A^2 / ps = 1e-20 m^2 / 1e-12 s = 1e-8 m^2/s
-        D_m2_s = (slope / 6.0) * 1e-8
-
-        return {
-            "slope_angstrom2_ps": slope,
-            "diffusion_coefficient_m2_s": D_m2_s,
-            "diffusion_coefficient_cm2_s": D_m2_s * 1e4
-        }
+        """Calculates self-diffusion coefficient (D) by delegating to the first-class app.lammps.diffusion module."""
+        from app.lammps.diffusion import calculate_diffusion_coefficient as core_calc_diffusion
+        return core_calc_diffusion(time_ps, msd_angstrom2, fit_start_fraction=0.4)
 
     def run_workflow(self, input_script: str) -> Dict[str, Any]:
         """Executes the research workflow locally."""
