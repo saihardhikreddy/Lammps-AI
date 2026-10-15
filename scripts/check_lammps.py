@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """CLI Diagnostic Utility for checking local LAMMPS installation and GPU/CPU features."""
 import sys
 from pathlib import Path

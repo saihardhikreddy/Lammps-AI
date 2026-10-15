@@ -1,3 +1,10 @@
-# Minimal dependencies for Local LAMMPS Research Assistant
-# The entire core engine runs purely on the Python 3.9+ Standard Library!
-# No cloud APIs (OpenAI, Anthropic, Gemini, Hugging Face) or remote vector databases required.
+# Local LAMMPS Research Assistant
+#
+# The core (script generation, validation, local LAMMPS execution, log/trajectory parsing,
+# web UI) runs on the Python 3.9+ standard library alone: `python run.py` needs nothing here.
+#
+# The packages below are OPTIONAL integrations:
+python-dotenv>=1.0      # optional: .env loading (a stdlib fallback parser is built in)
+google-genai>=1.0       # optional: Google Gemini answers for documentation/general questions (sends queries to Google's cloud API)
+#
+# OVITO rendering is in requirements-visualization.txt (local machines with a display/GPU only).
