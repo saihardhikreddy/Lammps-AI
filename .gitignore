@@ -48,3 +48,22 @@ restart.*
 *.restart
 tmp/
 scratch/
+
+# Local LAMMPS assistant
+share/python-wheels/
+env.bak/
+venv.bak/
+data/runs/
+simulations/
+*.log
+.system_generated/
+.pytest_cache/
+.coverage
+.DS_Store
+Thumbs.db
+.vercel
+.env.*
+!.env.example
+data/memory.db
+*.zip
+.venv/

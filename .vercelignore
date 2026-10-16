@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+tests/
+scratch/
+.system_generated/
+data/runs/
+.pytest_cache/
+*.log
+.env
+.env.*
+data/memory.db
+simulations/
+*.zip
