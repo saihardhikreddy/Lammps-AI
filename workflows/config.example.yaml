@@ -1,0 +1,53 @@
+# =============================================================================
+# LAMMPS-AI Workflow Configuration Example
+# =============================================================================
+# Use this configuration file to parameterize atomic simulations, interatomic
+# potentials, equilibration conditions, and mechanical deformation runs.
+# =============================================================================
+
+simulation:
+  name: "Cu_tensile_300K"
+  element: "Cu"
+  crystal_structure: "fcc"
+  lattice_constant: 3.615        # Angstroms for Cu FCC
+  dimensions:
+    nx: 10                       # Unit cell repetitions along X
+    ny: 10                       # Unit cell repetitions along Y
+    nz: 20                       # Unit cell repetitions along Z
+  boundary: "p p p"              # Periodic boundary conditions
+
+potential:
+  pair_style: "eam/alloy"
+  potential_file: "simulations/potentials/Cu01.eam.alloy"
+  elements:
+    - "Cu"
+
+equilibration:
+  ensemble: "npt"
+  temperature: 300.0             # Target temperature in Kelvin
+  target_pressure: 0.0           # Atmospheric / zero pressure in bars
+  temperature_damping: 0.1       # Tdamp parameter in ps
+  pressure_damping: 1.0          # Pdamp parameter in ps
+  timestep: 0.001                # 1 fs timestep for metal units
+  steps: 5000                    # Equilibration steps
+
+tensile:
+  strain_axis: "z"               # Direction of uniaxial elongation (x, y, or z)
+  strain_rate: 0.01              # Engineering strain rate per picosecond (1/ps)
+  temperature: 300.0             # Kelvin
+  transverse_pressure: 0.0       # Zero stress on transverse boundaries (NPT)
+  run_steps: 25000               # Production tensile elongation steps
+  thermo_interval: 100           # Output thermo data frequency
+  dump_interval: 500             # Trajectory dump frequency for visualization
+
+output:
+  log_file: "log.cu_tensile"
+  trajectory_file: "dump.cu_tensile.lammpstrj"
+  thermo_columns:
+    - "step"
+    - "temp"
+    - "press"
+    - "pe"
+    - "ke"
+    - "lz"
+    - "pzz"
