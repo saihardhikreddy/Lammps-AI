@@ -1,7 +1,6 @@
 """Python Standard Library HTTP Server with Native SSE Streaming and CSRF Protection."""
 import os
 import re
-import sys
 import time
 import json
 import uuid
@@ -12,7 +11,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from app import config as app_config
-from app.config import HOST, PORT, GENERATED_DIR, BASE_DIR, RUNS_DIR
+from app.config import HOST, PORT, GENERATED_DIR, RUNS_DIR
 from app.chatbot.router import ChatbotRouter
 from app.lammps.detector import detect_lammps
 from app.lammps.runner import SimulationRunner, get_run_state
@@ -680,7 +679,7 @@ def start_server(host: str = HOST, port: int = PORT):
     print("=" * 65)
     print("  LAMMPS Research Assistant — Standard Library Server")
     print(f"  Local URL: http://{host}:{port}")
-    print(f"  CSRF Protection: Active (session token initialized)")
+    print("  CSRF Protection: Active (session token initialized)")
     print(f"  Status: {detection['status_text']}")
     print(f"  Workspace RAG: READY ({len(router.retriever.chunks)} docs indexed)")
     print("=" * 65)

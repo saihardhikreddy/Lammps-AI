@@ -1,5 +1,5 @@
 """Simulation Stage & Workflow Planner for Liquid-State MD."""
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class SimulationPlanner:
     """Plans multi-stage simulation workflows and protocols for physically sound liquid simulations."""

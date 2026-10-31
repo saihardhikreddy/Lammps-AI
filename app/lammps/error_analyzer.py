@@ -1,6 +1,6 @@
 """Diagnostic Error Analysis Engine for LAMMPS Simulation Failures."""
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from app.knowledge.retriever import LocalKnowledgeRetriever
 
 ERROR_DATABASE = [

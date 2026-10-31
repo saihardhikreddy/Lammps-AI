@@ -233,7 +233,7 @@ class TestRunnerSafety(unittest.TestCase):
                     runner_mod._run_states.pop(k)
 
     def test_synthetic_log_is_labelled_and_not_disguised_as_lammps(self):
-        from app.lammps.runner import SimulationRunner, get_run_state
+        from app.lammps.runner import SimulationRunner
         script = self.tmp / "x.in"
         script.write_text(template_lj_fluid(nsteps=200, eq_steps=100), encoding="utf-8")
         res = SimulationRunner(executable_path="builtin").run_script(script, "test_synth_label", sync=True)

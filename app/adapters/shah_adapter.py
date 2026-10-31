@@ -4,9 +4,8 @@ Interfaces with Shah Research Group methodologies and the MDTransport package fo
 computing molecular transport properties (diffusion, ionic conductivity, viscosity, RDF)
 from LAMMPS trajectory outputs (.lammpstrj).
 """
-import math
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 class ResearchPackageAdapter(ABC):

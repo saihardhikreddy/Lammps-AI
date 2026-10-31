@@ -1,6 +1,6 @@
 """Deterministic Thermodynamic and Simulation Output Parser with Time-Series Extraction."""
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import math
 
 class ThermoParser:

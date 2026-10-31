@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.lammps.trajectory_parser import parse_dump_frames
 from app.lammps.ovito_renderer import render_final_frame
-from app.lammps.runner import SimulationRunner, get_run_state, _run_states
+from app.lammps.runner import SimulationRunner, get_run_state
 
 
 class TestTrajectoryStreaming(unittest.TestCase):

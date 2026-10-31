@@ -5,7 +5,7 @@ Parses atomic coordinates, box boundaries, velocities, and per-atom properties
 from standard LAMMPS custom dump files into structured NumPy arrays.
 """
 
-from typing import Dict, Generator, List, Any
+from typing import Dict, Generator, Any
 import numpy as np
 
 

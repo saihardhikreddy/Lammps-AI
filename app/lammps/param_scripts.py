@@ -9,7 +9,7 @@ import math
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from app.config import SIMULATIONS_DIR
 from app.lammps.validator import is_escaping_path

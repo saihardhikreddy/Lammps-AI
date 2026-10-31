@@ -1,5 +1,4 @@
 """Generates a professional, comprehensive Presentation Guide PDF for PPT preparation."""
-import os
 import sys
 from pathlib import Path
 from reportlab.lib.pagesizes import letter
@@ -7,7 +6,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
 from reportlab.pdfgen import canvas
 

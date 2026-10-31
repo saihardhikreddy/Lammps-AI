@@ -23,7 +23,7 @@ def main():
 
     status = detect_lammps()
     print(f"Status: {status['status_text']}")
-    print(f"Engine: Zero-Dependency Stdlib + Cloud Gemini & Liquid Physics RAG")
+    print("Engine: Zero-Dependency Stdlib + Cloud Gemini & Liquid Physics RAG")
     print("-" * 65)
 
     if "--check" in sys.argv or "-c" in sys.argv:

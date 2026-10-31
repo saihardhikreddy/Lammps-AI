@@ -1,7 +1,6 @@
 """Local Offline Multi-Signal Knowledge Retriever."""
 import re
-import math
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Dict, Optional
 from app.knowledge.schema import DocChunk, ExampleChunk
 from app.knowledge.builtins import BUILTIN_COMMANDS, BUILTIN_GUIDES, BUILTIN_EXAMPLES
 from app.knowledge.indexer import LocalIndexer

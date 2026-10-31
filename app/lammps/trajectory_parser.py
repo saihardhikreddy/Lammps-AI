@@ -1,6 +1,6 @@
 """Incremental Trajectory Parser for LAMMPS dump.lammpstrj files."""
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple
 
 
 class AtomRecord(list):

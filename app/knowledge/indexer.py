@@ -2,7 +2,7 @@
 import sqlite3
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from app.config import DB_PATH
 from app.knowledge.schema import DocChunk
 

@@ -4,7 +4,6 @@ Connects to Google Cloud Gemini models (e.g., gemini-2.5-flash, gemini-2.0-flash
 for dynamic script generation, parameter extraction, and scientific reasoning.
 """
 import logging
-import os
 from typing import Optional, Dict, Any, List, Tuple
 from app.config import GEMINI_API_KEY, GEMINI_MODEL
 

@@ -1,5 +1,5 @@
 """Scientific and Syntax Validation Engine for LAMMPS Scripts."""
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import re
 
 def is_escaping_path(token: str) -> bool:

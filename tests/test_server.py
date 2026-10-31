@@ -6,7 +6,6 @@ import json
 import urllib.request
 import urllib.error
 from http.server import ThreadingHTTPServer
-from unittest.mock import MagicMock
 
 from app.ui.server import LAMMPSRequestHandler, router, SESSION_TOKEN
 

@@ -1,7 +1,7 @@
 """Unit and Integration Tests for Dynamic Parameter Extraction and Local LLM Pipeline."""
 import unittest
-from unittest.mock import MagicMock, patch
-from app.generation.intent import IntentExtractor, SimulationParameters
+from unittest.mock import MagicMock
+from app.generation.intent import IntentExtractor
 from app.chatbot.router import ChatbotRouter
 
 class TestDynamicPipeline(unittest.TestCase):

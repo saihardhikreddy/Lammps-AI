@@ -6,7 +6,7 @@ using the Einstein relation:
 
 This module operates independently with zero external dependencies.
 """
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 
 
 def calculate_diffusion_coefficient(

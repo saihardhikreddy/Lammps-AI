@@ -7,8 +7,6 @@ and provides multi-file retrieval for the local LLM and user search.
 import os
 import re
 import math
-import sqlite3
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple

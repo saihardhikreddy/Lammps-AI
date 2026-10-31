@@ -2,7 +2,7 @@
 import unittest
 from app.lammps.viscosity import calculate_green_kubo_viscosity, generate_green_kubo_commands
 from app.lammps.diffusion import calculate_diffusion_coefficient, generate_msd_commands
-from app.generation.templates import template_water_liquid, template_lj_fluid, template_molten_metal
+from app.generation.templates import template_water_liquid, template_molten_metal
 from app.lammps.validator import ScriptValidator
 
 

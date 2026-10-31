@@ -2,7 +2,7 @@
 import sqlite3
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from app.config import DB_PATH
 
 class ConversationMemory:

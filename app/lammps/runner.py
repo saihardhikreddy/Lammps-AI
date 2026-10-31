@@ -8,7 +8,7 @@ import re
 import math
 import random
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 from app.config import RUNS_DIR, EXECUTION_TIMEOUT_SECONDS
 from app.lammps.detector import detect_lammps
