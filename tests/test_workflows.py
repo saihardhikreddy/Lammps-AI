@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import tempfile
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -66,3 +67,22 @@ ITEM: ATOMS id type x y z
         assert snap["data"].shape == (2, 5)
     finally:
         Path(tmp_name).unlink(missing_ok=True)
+
+
+def test_workflow_config_example_structure():
+    """Verify that workflows/config.example.yaml exists and defines required workflow keys."""
+    config_path = REPO_ROOT / "workflows" / "config.example.yaml"
+    assert config_path.is_file(), "config.example.yaml should exist in workflows/"
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    assert "simulation" in config
+    assert "potential" in config
+    assert "equilibration" in config
+    assert "tensile" in config
+    assert "output" in config
+
+    assert config["simulation"]["element"] == "Cu"
+    assert config["tensile"]["strain_rate"] == 0.01
+    assert config["tensile"]["run_steps"] == 25000
