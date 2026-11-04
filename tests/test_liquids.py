@@ -35,6 +35,26 @@ class TestLiquidStateModules(unittest.TestCase):
         self.assertEqual(res["components_averaged"], 3)
         self.assertIn("scientific_note", res)
 
+    def test_green_kubo_integral_matches_closed_form(self):
+        # integral of exp(-t/100) from 0 to 395 fs (80% cutoff of 100 points) = 100 * (1 - e^-3.95)
+        import math
+        time_pts = [float(i * 5) for i in range(100)]
+        acf = [math.exp(-t / 100.0) for t in time_pts]
+        res = calculate_green_kubo_viscosity(time_pts, acf, units="lj", volume=2.0, temp=4.0)
+        expected = 100.0 * (1.0 - math.exp(-3.95))
+        self.assertAlmostEqual(res["integrated_integral"], expected, delta=expected * 1e-3)
+        self.assertAlmostEqual(res["viscosity_pa_s"], res["integrated_integral"] * 2.0 / 4.0)
+        running = res["running_integral"]
+        self.assertEqual(len(running), res["data_points_integrated"])
+        self.assertEqual(running[-1], res["integrated_integral"])
+        self.assertEqual(running, sorted(running))  # positive ACF: the integral only grows
+
+    def test_green_kubo_rejects_mismatched_lengths(self):
+        # Used to raise IndexError while averaging the components.
+        res = calculate_green_kubo_viscosity([0.0, 1.0, 2.0], [1.0, 0.5])
+        self.assertFalse(res["converged"])
+        self.assertEqual(res["viscosity_pa_s"], 0.0)
+
     def test_green_kubo_commands_generation(self):
         cmds = generate_green_kubo_commands(sample_interval=1, num_samples=50, corr_length=50)
         self.assertIn("variable        pxy equal pxy", cmds)

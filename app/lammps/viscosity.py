@@ -78,13 +78,14 @@ def calculate_green_kubo_viscosity(
         running integral, and scientific convergence notes.
     """
     n = len(time_pts)
-    if n < 2 or len(acf_pxy) < 2 or temp <= 0:
+    if n < 2 or len(acf_pxy) != n or temp <= 0:
         return {
             "viscosity_pa_s": 0.0,
             "viscosity_cp": 0.0,
             "units": units,
             "converged": False,
-            "warning": "Insufficient autocorrelation data points or non-physical temperature."
+            "warning": ("Insufficient autocorrelation data points, P_xy ACF length does not match "
+                        "the time points, or non-physical temperature."),
         }
 
     # Average over available off-diagonal stress components
@@ -138,6 +139,9 @@ def calculate_green_kubo_viscosity(
         "viscosity_pa_s": viscosity_pa_s,
         "viscosity_cp": viscosity_cp,
         "integrated_integral": integral,
+        # Running integral of the ACF (raw units) at each time point up to the cutoff;
+        # plot it to check that it has reached a plateau.
+        "running_integral": running_integral,
         "components_averaged": m,
         "data_points_integrated": max_idx,
         "units": units,
