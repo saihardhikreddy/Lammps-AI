@@ -41,7 +41,11 @@ class ThermoParser:
                 continue
 
             if in_thermo:
-                if "Loop time of" in line_str or "ERROR" in line_str or "WARNING" in line_str or line_str.startswith("---"):
+                # LAMMPS prints warnings in the middle of a run (e.g. lost atoms, neighbor list
+                # rebuilds); the table carries on after them, so only note them.
+                if line_str.startswith("WARNING:"):
+                    continue
+                if "Loop time of" in line_str or "ERROR" in line_str or line_str.startswith("---"):
                     in_thermo = False
                     if headers and current_rows:
                         thermo_blocks.append({"headers": headers, "rows": current_rows})

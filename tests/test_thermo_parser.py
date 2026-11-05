@@ -25,6 +25,14 @@ Loop time of 0.2 on 1 procs
         self.assertIn("time_series", res)
         self.assertEqual(len(res["time_series"]["Temp"]), 5)
 
+    def test_mid_run_warning_does_not_end_the_table(self):
+        log = self.sample_log.replace(
+            "100 298.5", "WARNING: Communication cutoff is too small (src/comm.cpp:723)\n100 298.5")
+        res = self.parser.parse_log_text(log)
+        self.assertEqual(len(res["time_series"]["Temp"]), 5)
+        self.assertEqual(len(res["warnings"]), 1)
+        self.assertIn("Communication cutoff", res["warnings"][0])
+
     def test_stability_evaluation(self):
         res = self.parser.parse_log_text(self.sample_log)
         self.assertTrue(res["parsed"])
