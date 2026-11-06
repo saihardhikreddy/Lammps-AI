@@ -71,9 +71,13 @@ class ScriptValidator:
             elif cmd == "boundary":
                 has_boundary = True
                 assumptions.append(f"Boundary conditions: {' '.join(tokens[1:])}")
-            elif cmd in ("create_box", "read_data", "read_restart"):
+            elif cmd == "create_box":
                 has_box_or_data = True
-            elif cmd in ("create_atoms", "read_data", "read_restart"):
+            elif cmd in ("read_data", "read_restart"):
+                # these define the box and its atoms in one step
+                has_box_or_data = True
+                has_atoms = True
+            elif cmd == "create_atoms":
                 has_atoms = True
             elif cmd == "velocity":
                 has_velocity = True

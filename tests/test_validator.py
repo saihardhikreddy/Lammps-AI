@@ -23,6 +23,21 @@ run 100"""
         self.assertTrue(res["valid"])
         self.assertEqual(len(res["errors"]), 0)
 
+    def test_read_data_script_is_valid(self):
+        # read_data defines the box and the atoms, so no create_atoms is needed
+        script = """units real
+atom_style full
+boundary p p p
+read_data system.data
+pair_style lj/cut 10.0
+pair_coeff * * 0.1 3.0
+fix 1 all nve
+timestep 1.0
+run 100"""
+        res = self.validator.validate_static(script)
+        self.assertEqual(res["errors"], [])
+        self.assertTrue(res["valid"])
+
     def test_missing_units(self):
         script = """atom_style atomic
 lattice fcc 4.05
