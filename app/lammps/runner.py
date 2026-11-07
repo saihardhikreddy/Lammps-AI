@@ -26,6 +26,20 @@ _run_states: Dict[str, Dict[str, Any]] = {}
 _run_states_lock = threading.Lock()
 
 
+def thermostat_temps(line: str) -> Optional[tuple]:
+    """(start, stop) temperatures from a 'fix ... nvt/npt temp Tstart Tstop Tdamp' line.
+
+    Reads the two numbers after the 'temp' keyword, not the first numbers on the line,
+    which are often the fix ID ('fix 1 all nvt temp 300 300 0.1').
+    """
+    tokens = line.split()
+    try:
+        i = [t.lower() for t in tokens].index("temp")
+        return float(tokens[i + 1]), float(tokens[i + 2])
+    except (ValueError, IndexError):
+        return None
+
+
 def _kill_process_tree(proc: subprocess.Popen) -> None:
     """Kill a process and everything it spawned (wsl.exe -> lmp, mpirun -> ranks, shell -> child)."""
     if proc.poll() is not None:
@@ -529,10 +543,9 @@ class SimulationRunner:
                 if len(parts) > 1:
                     units = parts[1]
             elif "temp" in line and ("nvt" in line or "npt" in line):
-                nums = re.findall(r"[-+]?\d*\.\d+|\d+", line)
-                if len(nums) >= 2:
-                    start_temp = float(nums[0])
-                    target_temp = float(nums[1])
+                temps = thermostat_temps(line)
+                if temps:
+                    start_temp, target_temp = temps
             elif line.startswith("thermo "):
                 nums = re.findall(r"\d+", line)
                 if nums:
