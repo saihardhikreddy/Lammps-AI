@@ -3,6 +3,17 @@ from pathlib import Path
 from typing import Dict, List, Any
 import math
 
+def _round(x: float) -> float:
+    """4 decimals, like before, but at least 4 significant figures for small values.
+
+    Plain round(x, 4) turned a water self-diffusion coefficient in real units
+    (v_D_fit ~ 2.3e-05 A^2/fs) into 0.0, and small pressures or MSD slopes likewise.
+    """
+    if x == 0 or not math.isfinite(x):
+        return x
+    return round(x, max(4, 3 - math.floor(math.log10(abs(x)))))
+
+
 class ThermoParser:
     """Parses LAMMPS log files, computes statistics, and extracts time-series for visualization."""
 
@@ -116,13 +127,13 @@ class ThermoParser:
             drift = values[-1] - values[0]
 
             summary[col] = {
-                "initial": round(values[0], 4),
-                "final": round(values[-1], 4),
-                "min": round(min(values), 4),
-                "max": round(max(values), 4),
-                "mean": round(mean_val, 4),
-                "std_dev": round(std_dev, 4),
-                "drift": round(drift, 4)
+                "initial": _round(values[0]),
+                "final": _round(values[-1]),
+                "min": _round(min(values)),
+                "max": _round(max(values)),
+                "mean": _round(mean_val),
+                "std_dev": _round(std_dev),
+                "drift": _round(drift)
             }
         return summary
 

@@ -38,3 +38,17 @@ Loop time of 0.2 on 1 procs
         self.assertTrue(res["parsed"])
         self.assertIn("stability", res)
         self.assertIn("equilibrated", res["stability"].lower())
+
+    def test_small_values_keep_their_significant_figures(self):
+        # SPC/E water in real units: D ~ 2.3e-05 A^2/fs. Rounding to 4 decimals made it 0.0.
+        log = ("Step Temp c_cMSD[4] v_D_fit\n"
+               "0 300.0 0.0 0.0\n"
+               "1000 299.5 0.142 2.37e-05\n"
+               "2000 300.2 0.281 2.34e-05\n"
+               "Loop time of 1.0 on 1 procs\n")
+        summary = self.parser.parse_log_text(log)["summary"]
+        self.assertAlmostEqual(summary["v_D_fit"]["final"], 2.34e-05, delta=1e-9)
+        self.assertNotEqual(summary["v_D_fit"]["max"], 0.0)
+        # Larger numbers are rounded as before.
+        self.assertEqual(summary["Temp"]["mean"], 299.9)
+        self.assertEqual(summary["c_cMSD[4]"]["final"], 0.281)
