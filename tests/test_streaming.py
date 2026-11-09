@@ -241,6 +241,29 @@ class TestTrajectoryStreaming(unittest.TestCase):
         self.assertAlmostEqual(atoms[1]["c_atomKE"], 0.0789)
         self.assertAlmostEqual(atoms[1]["v_vonMises"], 98.765)
 
+    def test_scaled_coordinates_are_converted_to_box_units(self):
+        """`dump atom` (LAMMPS's default style) writes xs ys zs in 0..1; positions must be in box units."""
+        dump_file = self.temp_dir / "dump_atom.lammpstrj"
+        dump_file.write_text(
+            "ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n2\n"
+            "ITEM: BOX BOUNDS pp pp pp\n-5.0 5.0\n0.0 20.0\n10.0 12.0\n"
+            "ITEM: ATOMS id type xs ys zs\n"
+            "1 1 0.5 0.25 0.0\n"
+            "2 1 1.0 0.5 0.5\n", encoding="utf-8")
+        frames, _ = parse_dump_frames(dump_file, 0)
+        a, b = frames[0]["atoms"]
+        self.assertEqual((a["x"], a["y"], a["z"]), (0.0, 5.0, 10.0))
+        self.assertEqual((b["x"], b["y"], b["z"]), (5.0, 10.0, 11.0))
+
+    def test_unwrapped_coordinates_are_used_as_is(self):
+        dump_file = self.temp_dir / "dump_unwrapped.lammpstrj"
+        dump_file.write_text(
+            "ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n1\n"
+            "ITEM: BOX BOUNDS pp pp pp\n0 10\n0 10\n0 10\n"
+            "ITEM: ATOMS id type xu yu zu\n1 1 12.5 -3.0 4.0\n", encoding="utf-8")
+        atom = parse_dump_frames(dump_file, 0)[0][0]["atoms"][0]
+        self.assertEqual((atom["x"], atom["y"], atom["z"]), (12.5, -3.0, 4.0))
+
     def test_dump_parsing_without_ke_and_stress_fallbacks(self):
         """Verify dump without field columns gracefully falls back to None."""
         dump_file = self.temp_dir / "dump_basic.lammpstrj"

@@ -143,10 +143,18 @@ def parse_dump_frames(file_path: Path, byte_offset: int = 0) -> Tuple[List[Dict[
                     id_idx = col_idx.get("id", 0)
                     type_idx = col_idx.get("type", 1)
 
-                    # Position columns
-                    x_idx = col_idx.get("x", col_idx.get("xs", col_idx.get("xu", 2)))
-                    y_idx = col_idx.get("y", col_idx.get("ys", col_idx.get("yu", 3)))
-                    z_idx = col_idx.get("z", col_idx.get("zs", col_idx.get("zu", 4)))
+                    # Position columns. LAMMPS's default `dump atom` style writes scaled coordinates
+                    # (xs ys zs, 0..1 across the box); those are turned back into box units below,
+                    # or the viewer would draw every atom inside a unit cube.
+                    def position(axis, default):
+                        for name, scaled in ((axis, False), (axis + "u", False), (axis + "s", True), (axis + "su", True)):
+                            if name in col_idx:
+                                return col_idx[name], scaled
+                        return default, False
+
+                    (x_idx, x_scaled), (y_idx, y_scaled), (z_idx, z_scaled) = (
+                        position("x", 2), position("y", 3), position("z", 4))
+                    scaled_axes = ((0, x_scaled), (1, y_scaled), (2, z_scaled))
 
                     # Kinetic energy column
                     ke_idx = None
@@ -185,7 +193,12 @@ def parse_dump_frames(file_path: Path, byte_offset: int = 0) -> Tuple[List[Dict[
                             ke_val = float(parts[ke_idx]) if (ke_idx is not None and ke_idx < len(parts)) else None
                             stress_val = float(parts[stress_idx]) if (stress_idx is not None and stress_idx < len(parts)) else None
 
-                            atoms.append(AtomRecord([atom_id, atom_type, x, y, z, ke_val, stress_val]))
+                            xyz = [x, y, z]
+                            for axis, scaled in scaled_axes:
+                                if scaled:
+                                    lo, hi = box[axis]
+                                    xyz[axis] = lo + xyz[axis] * (hi - lo)
+                            atoms.append(AtomRecord([atom_id, atom_type, *xyz, ke_val, stress_val]))
                         except (ValueError, IndexError):
                             atoms_complete = False
                             break
