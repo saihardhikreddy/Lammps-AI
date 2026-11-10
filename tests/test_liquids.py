@@ -55,6 +55,25 @@ class TestLiquidStateModules(unittest.TestCase):
         self.assertFalse(res["converged"])
         self.assertEqual(res["viscosity_pa_s"], 0.0)
 
+    def test_green_kubo_real_and_metal_units_agree(self):
+        # The same physical ACF in real units (atm, fs) and metal units (bar, ps) is one viscosity.
+        import math
+        t_fs = [float(i * 2) for i in range(400)]
+        acf_atm2 = [1.0e4 * math.exp(-t / 150.0) for t in t_fs]
+        real = calculate_green_kubo_viscosity(t_fs, acf_atm2, units="real", volume=27000.0, temp=300.0)
+        metal = calculate_green_kubo_viscosity([t / 1000.0 for t in t_fs], [a * 1.01325 ** 2 for a in acf_atm2],
+                                               units="metal", volume=27000.0, temp=300.0)
+        self.assertAlmostEqual(metal["viscosity_pa_s"], real["viscosity_pa_s"], delta=real["viscosity_pa_s"] * 1e-9)
+        self.assertAlmostEqual(real["viscosity_cp"], real["viscosity_pa_s"] * 1000.0)
+
+    def test_green_kubo_refuses_unsupported_units(self):
+        # 'si', 'cgs' or a typo used to be treated as LJ and reported as Pa·s.
+        for units in ("si", "cgs", "Real"):
+            res = calculate_green_kubo_viscosity([0.0, 1.0, 2.0], [1.0, 0.5, 0.2], units=units)
+            self.assertFalse(res["converged"])
+            self.assertEqual(res["viscosity_pa_s"], 0.0)
+            self.assertIn("not supported", res["warning"])
+
     def test_green_kubo_commands_generation(self):
         cmds = generate_green_kubo_commands(sample_interval=1, num_samples=50, corr_length=50)
         self.assertIn("variable        pxy equal pxy", cmds)

@@ -77,6 +77,17 @@ def calculate_green_kubo_viscosity(
         Dictionary with integrated shear viscosity in Pa·s and cP (mPa·s),
         running integral, and scientific convergence notes.
     """
+    if units not in ("real", "metal", "lj"):
+        # Any other style used to fall through to the LJ branch: a reduced-unit number labelled
+        # as Pa·s. Only these three have their pressure and time units converted here.
+        return {
+            "viscosity_pa_s": 0.0,
+            "viscosity_cp": 0.0,
+            "units": units,
+            "converged": False,
+            "warning": f"Units '{units}' are not supported; use 'real', 'metal' or 'lj'.",
+        }
+
     n = len(time_pts)
     if n < 2 or len(acf_pxy) != n or temp <= 0:
         return {
