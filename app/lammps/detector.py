@@ -104,13 +104,19 @@ def detect_lammps(custom_path: Optional[str] = None, force_refresh: bool = False
             pass
 
     if not found_path:
-        return {
+        res = {
             "detected": False,
             "executable": None,
             "version": "Not Detected (Local offline docs & script generator active)",
             "packages": [],
             "status_text": "LAMMPS: NOT DETECTED"
         }
+        # Cache this too. Otherwise every status check and every generated script repeated
+        # the whole search, including a WSL probe that can take up to 12 s on Windows.
+        # detect_lammps(force_refresh=True) (the UI's refresh) searches again after an install.
+        if not custom_path:
+            _CACHED_DETECTION = res
+        return res
 
     # Query LAMMPS version and installed packages safely
     version = "Unknown"
