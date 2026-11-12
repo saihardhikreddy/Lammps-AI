@@ -14,6 +14,11 @@ def _round(x: float) -> float:
     return round(x, max(4, 3 - math.floor(math.log10(abs(x)))))
 
 
+def _json_number(x: float):
+    """x, or None for nan/inf, which JSON can't carry (the browser's JSON.parse rejects NaN)."""
+    return x if math.isfinite(x) else None
+
+
 class ThermoParser:
     """Parses LAMMPS log files, computes statistics, and extracts time-series for visualization."""
 
@@ -93,6 +98,17 @@ class ThermoParser:
         stability = self._check_stability(latest["headers"], latest["rows"])
         time_series = self._extract_time_series(latest["headers"], latest["rows"])
 
+        # A run that blows up prints nan/inf. Those rows used to be averaged in (NaN means),
+        # sent to the browser as bare NaN (not valid JSON), and a short blown-up run was even
+        # reported as "Equilibrated".
+        bad_rows = sum(1 for r in latest["rows"] if not all(math.isfinite(v) for v in r))
+        if bad_rows:
+            stability["non_finite_rows"] = bad_rows
+            stability["temperature_stabilized"] = False
+            verdict = f"Unstable ({bad_rows} thermo row(s) with nan/inf: the run blew up)"
+        else:
+            verdict = "Equilibrated" if stability.get("temperature_stabilized", True) else "Fluctuating"
+
         return {
             "parsed": True,
             "stage_count": len(thermo_blocks),
@@ -100,18 +116,18 @@ class ThermoParser:
             "headers": latest["headers"],
             "row_count": len(latest["rows"]),
             "summary": summary,
-            "stability": "Equilibrated" if stability.get("temperature_stabilized", True) else "Fluctuating",
+            "stability": verdict,
             "stability_analysis": stability,
             "time_series": time_series,
             "warnings": warnings_found,
             "errors": errors_found,
-            "raw_rows": latest["rows"]
+            "raw_rows": [[_json_number(v) for v in r] for r in latest["rows"]]
         }
 
     def _extract_time_series(self, headers: List[str], rows: List[List[float]]) -> Dict[str, List[float]]:
         series = {}
         for idx, col in enumerate(headers):
-            series[col] = [r[idx] for r in rows]
+            series[col] = [_json_number(r[idx]) for r in rows]   # nan/inf -> None (a gap)
         return series
 
     def _compute_summary(self, headers: List[str], rows: List[List[float]]) -> Dict[str, Any]:
@@ -119,7 +135,11 @@ class ThermoParser:
             return {}
         summary = {}
         for idx, col in enumerate(headers):
-            values = [r[idx] for r in rows]
+            values = [r[idx] for r in rows if math.isfinite(r[idx])]
+            skipped = len(rows) - len(values)
+            if not values:
+                summary[col] = {"non_finite": skipped}
+                continue
             n = len(values)
             mean_val = sum(values) / n
             variance = sum((x - mean_val) ** 2 for x in values) / n
@@ -135,6 +155,8 @@ class ThermoParser:
                 "std_dev": _round(std_dev),
                 "drift": _round(drift)
             }
+            if skipped:
+                summary[col]["non_finite"] = skipped   # stats above use the finite values only
         return summary
 
     def _check_stability(self, headers: List[str], rows: List[List[float]]) -> Dict[str, Any]:
@@ -147,7 +169,10 @@ class ThermoParser:
 
         if "Temp" in headers:
             t_idx = headers.index("Temp")
-            recent_temps = [r[t_idx] for r in recent_rows]
+            recent_temps = [r[t_idx] for r in recent_rows if math.isfinite(r[t_idx])]
+            if not recent_temps:
+                res["temperature_stabilized"] = False
+                return res
             recent_mean = sum(recent_temps) / len(recent_temps)
             recent_std = math.sqrt(sum((x - recent_mean) ** 2 for x in recent_temps) / len(recent_temps))
             fluctuation_pct = (recent_std / max(abs(recent_mean), 1e-4)) * 100
