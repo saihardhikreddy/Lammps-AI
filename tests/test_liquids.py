@@ -98,6 +98,24 @@ class TestLiquidStateModules(unittest.TestCase):
         cmds = generate_msd_commands(group="all", compute_id="cMSD")
         self.assertIn("compute         cMSD all msd", cmds)
         self.assertIn("fix             fMSD all ave/time", cmds)
+        self.assertIn('title1 "# TimeStep MSD_total"', cmds)   # the column is a step, not a time
+
+    def test_msd_file_steps_become_picoseconds(self):
+        import tempfile
+        from app.lammps.diffusion import read_msd_file
+        # fix ave/time output: 1 fs steps every 10 steps, MSD growing 1.5 A^2 per ps
+        lines = ["# TimeStep MSD_total", ""] + [f"{s} {1.5 * s * 0.001}" for s in range(0, 50010, 10)]
+        with tempfile.NamedTemporaryFile("w", suffix=".out", delete=False) as f:
+            f.write("\n".join(lines))
+        t, msd = read_msd_file(f.name, timestep_ps=0.001)
+        self.assertAlmostEqual(t[-1], 50.0)
+        res = calculate_diffusion_coefficient(t, msd)
+        self.assertAlmostEqual(res["diffusion_coefficient_m2_s"], 2.5e-9, places=12)
+        # Fitting against the raw step numbers would have given a D 1000x too small.
+        steps = [float(line.split()[0]) for line in lines[2:]]
+        self.assertAlmostEqual(calculate_diffusion_coefficient(steps, msd)["diffusion_coefficient_m2_s"], 2.5e-12, places=15)
+        with self.assertRaises(ValueError):
+            read_msd_file(f.name, timestep_ps=0)
 
     # ── Template & Protocol Tests ────────────────────────────────────
     def test_spce_water_template_syntax(self):

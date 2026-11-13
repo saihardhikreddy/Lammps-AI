@@ -6,7 +6,7 @@ using the Einstein relation:
 
 This module operates independently with zero external dependencies.
 """
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 
 def calculate_diffusion_coefficient(
@@ -88,8 +88,38 @@ def generate_msd_commands(
     sample_every: int = 10,
     output_file: str = "msd.out"
 ) -> str:
-    """Generate official LAMMPS command blocks for tracking 3D MSD."""
+    """Generate official LAMMPS command blocks for tracking 3D MSD.
+
+    The first column fix ave/time writes is the timestep number, not a time. (The title used
+    to call it "Time", and fitting MSD against step numbers as if they were picoseconds gives
+    a D that is off by the timestep: 1000x for a 1 fs step.) Read the file with
+    read_msd_file(path, timestep_ps), which converts steps to picoseconds.
+    """
     return f"""# Compute Mean Squared Displacement (MSD)
 compute         {compute_id} {group} msd
-fix             {fix_id} {group} ave/time {sample_every} 1 {sample_every} c_{compute_id}[4] file {output_file} title1 "# Time MSD_total"
+fix             {fix_id} {group} ave/time {sample_every} 1 {sample_every} c_{compute_id}[4] file {output_file} title1 "# TimeStep MSD_total"
 """
+
+
+def read_msd_file(path: str, timestep_ps: float) -> Tuple[List[float], List[float]]:
+    """(time_ps, msd) from a fix ave/time MSD file, ready for calculate_diffusion_coefficient.
+
+    Each data row is "<timestep> <msd>"; the timestep is multiplied by timestep_ps (0.001 for
+    a 1 fs step in metal or real units). Comment lines and blank lines are skipped.
+    """
+    if not timestep_ps or timestep_ps <= 0:
+        raise ValueError(f"timestep_ps must be positive, got {timestep_ps!r}")
+    time_ps: List[float] = []
+    msd: List[float] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            parts = line.split()
+            if not parts or parts[0].startswith("#") or len(parts) < 2:
+                continue
+            try:
+                step, value = float(parts[0]), float(parts[1])
+            except ValueError:
+                continue
+            time_ps.append(step * timestep_ps)
+            msd.append(value)
+    return time_ps, msd
