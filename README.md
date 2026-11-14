@@ -77,7 +77,7 @@ Script requests for supported liquids **always** use the deterministic, validate
 8. **WebGL2 trajectory player** (`trajectory-viewer.js`): instanced rendering, play/pause/scrub, orbit/pan/zoom, coloring by element or per-atom kinetic energy.
 9. **Synthetic-data labelling**: without a LAMMPS binary, a built-in engine produces an illustrative trajectory so the viewer can be demonstrated. Its log file starts with `# SYNTHETIC DATA … NOT by LAMMPS`, and the UI shows a persistent banner. These numbers are not simulation results.
 10. **Optional OVITO rendering**: final-frame image and coordination histogram when `ovito` is installed and a display is available; skipped gracefully otherwise.
-11. **Error diagnostics** for common LAMMPS failures (lost atoms, PPPM out-of-range, illegal fix/pair_style, missing files, NaN coordinates).
+11. **Error diagnostics** for common LAMMPS failures (lost atoms, PPPM out-of-range, illegal fix/pair_style, missing files, NaN coordinates, a style from a package missing from the binary, bond atoms missing, atoms outside the data-file box).
 12. **Pluggable Shah adapter** (`app/adapters/shah_adapter.py`) wrapping the diffusion module.
 
 #### Intentional design boundaries
