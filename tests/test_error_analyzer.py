@@ -38,6 +38,28 @@ class TestErrorAnalyzer(unittest.TestCase):
         self.assertNotEqual(diag["identified_command"], "minimize")
         self.assertNotIn("NaN", diag["probable_cause"])
 
+    def test_package_not_in_this_binary(self):
+        err = ("ERROR: Unrecognized pair style 'reaxff' is part of the REAXFF package which is not "
+               "enabled in this LAMMPS binary. (src/force.cpp:275)")
+        diag = self.analyzer.analyze(err)
+        self.assertEqual(diag["identified_command"], "package")
+        self.assertIn("rebuild", diag["suggested_fix"].lower())
+
+    def test_bond_atoms_missing(self):
+        diag = self.analyzer.analyze("ERROR: Bond atoms 12 13 missing on proc 0 at step 200 (src/ntopo_bond_all.cpp:59)")
+        self.assertEqual(diag["identified_command"], "comm_modify")
+        self.assertIn("timestep", diag["suggested_fix"].lower())
+
+    def test_atoms_outside_the_data_file_box(self):
+        diag = self.analyzer.analyze("ERROR: Did not assign all atoms correctly (src/read_data.cpp:1050)")
+        self.assertEqual(diag["identified_command"], "read_data")
+
+    def test_fallback_names_the_command_in_longer_messages(self):
+        diag = self.analyzer.analyze("ERROR: Illegal compute msd command (src/compute_msd.cpp:41)")
+        self.assertEqual(diag["identified_command"], "compute")
+        diag = self.analyzer.analyze("ERROR: Unknown command: velocty all create 300 4928 (src/input.cpp:314)")
+        self.assertEqual(diag["identified_command"], "velocty")
+
 if __name__ == "__main__":
     unittest.main()
 

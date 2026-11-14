@@ -58,6 +58,38 @@ fix             1 all nvt temp 300.0 300.0 0.1"""
 pair_coeff      * * Al99.eam.alloy Al"""
     },
     {
+        # e.g. "Unrecognized pair style 'reaxff' is part of the REAXFF package which is not
+        # enabled in this LAMMPS binary." The style is right; the binary lacks it.
+        "pattern": r"is part of the \S+ package which is not enabled",
+        "command": "package",
+        "cause": "The style exists in LAMMPS, but this LAMMPS binary was built without the package that provides it.",
+        "scientific_reason": "LAMMPS compiles most force fields, fixes and computes as optional packages; a style from a package that was left out of the build is unknown to that binary.",
+        "suggested_fix": "1. Run 'lmp -help' and check the 'Installed packages' list.\n2. Rebuild LAMMPS with the named package enabled (CMake: -D PKG_<NAME>=on), or install a build that includes it (e.g. conda-forge's lammps).\n3. Or switch to a style from a package you have.",
+        "patch_example": """# CMake build with the missing package switched on (replace NAME)
+cmake -D PKG_NAME=on ../cmake
+cmake --build . -j 4"""
+    },
+    {
+        # e.g. "Bond atoms 12 13 missing on proc 0 at step 200"
+        "pattern": r"(bond|angle|dihedral|improper) atoms .*missing",
+        "command": "comm_modify",
+        "cause": "A bonded interaction spans further than the ghost-atom cutoff, so one of its atoms is not on the processor that computes it.",
+        "scientific_reason": "Usually a bond that has stretched far past its equilibrium length (an unstable, overlapping start or too large a timestep), or a molecule larger than the communication cutoff.",
+        "suggested_fix": "1. Minimize first and check the starting geometry for overlaps.\n2. Reduce the timestep.\n3. If the molecules are genuinely large, raise the ghost cutoff: 'comm_modify cutoff 12.0'.",
+        "patch_example": """minimize        1.0e-4 1.0e-6 1000 10000
+timestep        0.5
+comm_modify     cutoff 12.0"""
+    },
+    {
+        "pattern": r"did not assign all atoms correctly",
+        "command": "read_data",
+        "cause": "Some atoms in the data file lie outside the simulation box it declares.",
+        "scientific_reason": "The box bounds in the data file header are smaller than the coordinates, often after editing the box or converting units, or for non-periodic directions where atoms sit exactly on the boundary.",
+        "suggested_fix": "1. Check the xlo/xhi, ylo/yhi, zlo/zhi lines against the atom coordinates.\n2. For shrink-wrapped directions use 'boundary s s s' or 'm'.\n3. Images (the last three columns) must be integers if present.",
+        "patch_example": """boundary        p p p
+read_data       system.data"""
+    },
+    {
         "pattern": r"non-numeric.*atom.*coords|\bnan\b",
         "command": "minimize",
         "cause": "Atom coordinates became NaN (Not a Number) or Infinite.",
@@ -90,7 +122,10 @@ class ErrorAnalyzer:
             patch = matched_entry["patch_example"]
         else:
             # Fallback heuristic parser
-            cmd_match = re.search(r"illegal\s+([a-zA-Z0-9_/]+)\s+command", error_text, re.IGNORECASE)
+            # "Illegal compute msd command" and "Illegal fix_modify command" name the command
+            # first; "Unknown command: foo" names it last.
+            cmd_match = (re.search(r"illegal\s+([a-zA-Z0-9_/]+)(?:\s+[a-zA-Z0-9_/]+)?\s+command", error_text, re.IGNORECASE)
+                         or re.search(r"unknown command:\s*([a-zA-Z0-9_/]+)", error_text, re.IGNORECASE))
             cmd = cmd_match.group(1) if cmd_match else "command"
             cause = f"LAMMPS reported an error related to `{cmd}`."
             reason = "Syntax mismatch, unsupported style argument, or missing required parameter."
