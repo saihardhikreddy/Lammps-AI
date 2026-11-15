@@ -6,6 +6,7 @@ using the Einstein relation:
 
 This module operates independently with zero external dependencies.
 """
+import math
 from typing import List, Dict, Tuple
 
 
@@ -28,6 +29,10 @@ def calculate_diffusion_coefficient(
         - diffusion_coefficient_cm2_s: Self-diffusion coefficient D in cm²/s
         - r_squared: Coefficient of determination (R²) assessing linearity
     """
+    # A negative fraction used to slice from the END of the series (-0.5 fitted only the last
+    # half, silently), and NaN crashed int(); anything outside [0, 1) is a caller error.
+    if not (isinstance(fit_start_fraction, (int, float)) and 0 <= fit_start_fraction < 1):
+        raise ValueError(f"fit_start_fraction must be in [0, 1), got {fit_start_fraction!r}")
     if len(time_ps) < 2 or len(msd_angstrom2) < 2 or len(time_ps) != len(msd_angstrom2):
         return {
             "slope_angstrom2_ps": 0.0,
@@ -105,7 +110,8 @@ def read_msd_file(path: str, timestep_ps: float) -> Tuple[List[float], List[floa
     """(time_ps, msd) from a fix ave/time MSD file, ready for calculate_diffusion_coefficient.
 
     Each data row is "<timestep> <msd>"; the timestep is multiplied by timestep_ps (0.001 for
-    a 1 fs step in metal or real units). Comment lines and blank lines are skipped.
+    a 1 fs step in metal or real units). Comment lines, blank lines and rows holding nan or
+    inf are skipped.
     """
     if not timestep_ps or timestep_ps <= 0:
         raise ValueError(f"timestep_ps must be positive, got {timestep_ps!r}")
@@ -120,6 +126,8 @@ def read_msd_file(path: str, timestep_ps: float) -> Tuple[List[float], List[floa
                 step, value = float(parts[0]), float(parts[1])
             except ValueError:
                 continue
+            if not (math.isfinite(step) and math.isfinite(value)):
+                continue  # "nan"/"inf" rows from a run that blew up would make the fit NaN
             time_ps.append(step * timestep_ps)
             msd.append(value)
     return time_ps, msd

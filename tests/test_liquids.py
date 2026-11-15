@@ -117,6 +117,23 @@ class TestLiquidStateModules(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_msd_file(f.name, timestep_ps=0)
 
+    def test_msd_fit_refuses_a_bad_start_fraction_and_skips_nan_rows(self):
+        import tempfile
+        from app.lammps.diffusion import read_msd_file
+        t = [i * 0.01 for i in range(100)]
+        msd = [6.0 * x for x in t]
+        for bad in (-0.5, 1.0, float("nan")):
+            with self.assertRaises(ValueError):
+                calculate_diffusion_coefficient(t, msd, fit_start_fraction=bad)
+        self.assertAlmostEqual(calculate_diffusion_coefficient(t, msd, fit_start_fraction=0.0)["slope_angstrom2_ps"], 6.0)
+        lines = ["0 0.0", "10 0.06", "20 nan", "30 0.18", "40 -inf", "50 0.30"]
+        with tempfile.NamedTemporaryFile("w", suffix=".out", delete=False) as f:
+            f.write("\n".join(lines))
+        times, values = read_msd_file(f.name, timestep_ps=0.001)
+        self.assertEqual(len(times), 4)
+        res = calculate_diffusion_coefficient(times, values, fit_start_fraction=0.0)
+        self.assertAlmostEqual(res["slope_angstrom2_ps"], 6.0)
+
     # ── Template & Protocol Tests ────────────────────────────────────
     def test_spce_water_template_syntax(self):
         script = template_water_liquid(
