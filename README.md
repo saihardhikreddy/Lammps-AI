@@ -70,7 +70,7 @@ Script requests for supported liquids **always** use the deterministic, validate
    - **Self-diffusion** D = slope(MSD)/6, fitted in-run and printed as `v_D_fit`
    - **Shear viscosity** by Green-Kubo (after LAMMPS `examples/VISCOSITY`): stress autocorrelation over 5 τ (LJ), 2 ps (water) or 1 ps (metals), integrated in-run and printed as `v_eta` (mPa·s for water/metals). A single run gives a rough estimate; converge with longer runs and several seeds.
    - **Structure**: time-averaged g(r)
-   - `app/lammps/diffusion.py` and `app/lammps/viscosity.py` provide the same analyses for post-processing output files.
+   - `app/lammps/diffusion.py` and `app/lammps/viscosity.py` provide the same analyses for post-processing output files: `read_msd_file` reads a `fix ave/time` MSD file and `read_correlate_file` reads a `fix ave/correlate` file such as `profile.gk.2d` (its last complete block), ready for `calculate_diffusion_coefficient` and `calculate_green_kubo_viscosity`.
 5. **Phase sanity checks**: warnings when the requested temperature is below the melting/triple point, with the temperature actually simulated stated explicitly.
 6. **Static validation**: units, box/atoms, force field, integrators, velocity and timestep checks, plus: long-range solver with no charges, SHAKE with no bonds, transport measured under a thermostat, and file paths that leave the run folder.
 7. **Live execution streaming**: Server-Sent Events stream LAMMPS stdout and complete trajectory frames while the run is in progress; a configurable timeout (`LAMMPS_EXECUTION_TIMEOUT`, default 900 s) kills the whole process tree.

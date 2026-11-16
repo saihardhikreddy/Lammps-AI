@@ -81,6 +81,34 @@ class TestLiquidStateModules(unittest.TestCase):
         self.assertIn("variable        pyz equal pyz", cmds)
         self.assertIn("fix             fGK all ave/correlate", cmds)
 
+    def test_read_correlate_file_takes_the_last_block(self):
+        import math
+        import os
+        import tempfile
+        from app.lammps.viscosity import read_correlate_file
+
+        def block(step, scale):
+            rows = "".join(f"{i + 1} {i * 2} {50 - i} {scale * math.exp(-i / 4)} {scale} {scale}\n"
+                           for i in range(5))
+            return f"{step} 5\n" + rows
+
+        text = ("# Time-correlated data for fix fGK\n# Timestep Number-of-time-windows\n"
+                "# Index TimeDelta Ncount v_pxy*v_pxy v_pxz*v_pxz v_pyz*v_pyz\n"
+                + block(100, 9.0) + block(200, 1.0) + "300 5\n1 0 50 nan 1 1\n")   # cut off mid-write
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "profile.gk.2d")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            time, acfs = read_correlate_file(path, timestep=2.0)
+            with self.assertRaises(ValueError):
+                read_correlate_file(path, timestep=0)
+        self.assertEqual(time, [0.0, 4.0, 8.0, 12.0, 16.0])   # delta in steps x 2 fs
+        self.assertEqual(len(acfs), 3)
+        self.assertAlmostEqual(acfs[0][0], 1.0)                # the last complete block, not 9.0
+        res = calculate_green_kubo_viscosity(time, *acfs, units="real", volume=8000.0, temp=300.0)
+        self.assertEqual(res["components_averaged"], 3)
+        self.assertGreater(res["viscosity_pa_s"], 0)
+
     # ── Diffusion Module Tests (Einstein MSD) ────────────────────────
     def test_core_diffusion_calculation(self):
         # Linear MSD: MSD(t) = 6 * D * t + noise. Let D = 2.5e-9 m^2/s = 0.25 A^2/ps

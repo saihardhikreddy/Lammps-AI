@@ -17,7 +17,8 @@ of thousands to millions of timesteps) or averaging over multiple independent ru
 The long-time tail of the autocorrelation function accumulates statistical noise;
 short runs will not yield physically converged viscosity values.
 """
-from typing import List, Dict, Any, Optional
+import math
+from typing import List, Dict, Any, Optional, Tuple
 
 # Boltzmann constant in SI units (J / K)
 KB_SI = 1.380649e-23
@@ -161,3 +162,40 @@ def calculate_green_kubo_viscosity(
             "with noise filtering or block-averaging to ensure the stress correlation integral reaches a stable plateau."
         )
     }
+
+
+def read_correlate_file(path: str, timestep: float) -> Tuple[List[float], List[List[float]]]:
+    """(time, [acf per column]) from a fix ave/correlate file such as profile.gk.2d, ready for
+    calculate_green_kubo_viscosity(time, *acfs, ...).
+
+    The file holds one block per output step: a "<timestep> <rows>" line, then rows of
+    "<index> <delta> <count> <value> ...", where delta counts timesteps. With "ave running"
+    every block averages everything so far, so only the last complete block is returned.
+    `timestep` is the run's timestep in the units calculate_green_kubo_viscosity expects
+    (fs for real, ps for metal, tau for lj). Rows with nan or inf values are skipped.
+    """
+    if not timestep or not timestep > 0:
+        raise ValueError(f"timestep must be positive, got {timestep!r}")
+    blocks: List[List[List[float]]] = []
+    expected = 0
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            parts = line.split()
+            if not parts or parts[0].startswith("#"):
+                continue
+            try:
+                nums = [float(x) for x in parts]
+            except ValueError:
+                continue
+            if len(nums) == 2:                      # block header: timestep, number of rows
+                blocks.append([])
+                expected = int(nums[1])
+            elif len(nums) >= 4 and blocks:
+                blocks[-1].append(nums)
+    complete = [b for b in blocks if len(b) == expected] or blocks
+    if not complete or not complete[-1]:
+        raise ValueError(f"no correlation data in {path}")
+    rows = [r for r in complete[-1] if all(math.isfinite(v) for v in r)]
+    time = [r[1] * timestep for r in rows]
+    acfs = [[r[c] for r in rows] for c in range(3, len(rows[0]))] if rows else []
+    return time, acfs
