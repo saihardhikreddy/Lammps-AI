@@ -106,8 +106,14 @@ class ThermoParser:
             stability["non_finite_rows"] = bad_rows
             stability["temperature_stabilized"] = False
             verdict = f"Unstable ({bad_rows} thermo row(s) with nan/inf: the run blew up)"
+        elif len(latest["rows"]) < 8:
+            # Too few rows to judge; this used to fall through to "Equilibrated".
+            verdict = "Inconclusive (short run)"
+        elif "temperature_stabilized" not in stability:
+            # No Temp column, so nothing was checked; also used to say "Equilibrated".
+            verdict = "Inconclusive (no Temp column)"
         else:
-            verdict = "Equilibrated" if stability.get("temperature_stabilized", True) else "Fluctuating"
+            verdict = "Equilibrated" if stability["temperature_stabilized"] else "Fluctuating"
 
         return {
             "parsed": True,

@@ -34,10 +34,13 @@ Loop time of 0.2 on 1 procs
         self.assertIn("Communication cutoff", res["warnings"][0])
 
     def test_stability_evaluation(self):
-        res = self.parser.parse_log_text(self.sample_log)
+        # Ten rows: the stability check needs at least 8 (the 5-row sample is "Inconclusive").
+        rows = "".join(f"{i * 50} {300 + (i % 3) - 1} -4.20 -3.80 0.5 2650.0\n" for i in range(10))
+        res = self.parser.parse_log_text("Step Temp PotEng TotEng Press Volume\n" + rows + "Loop time of 0.2 on 1 procs\n")
         self.assertTrue(res["parsed"])
         self.assertIn("stability", res)
         self.assertIn("equilibrated", res["stability"].lower())
+        self.assertIn("short run", self.parser.parse_log_text(self.sample_log)["stability"])
 
     def test_small_values_keep_their_significant_figures(self):
         # SPC/E water in real units: D ~ 2.3e-05 A^2/fs. Rounding to 4 decimals made it 0.0.

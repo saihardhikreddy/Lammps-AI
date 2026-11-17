@@ -41,5 +41,14 @@ class BlownUpRunTests(unittest.TestCase):
         self.assertTrue(all(math.isfinite(v) for v in r["time_series"]["Temp"]))
 
 
+    def test_runs_too_short_or_without_temp_are_inconclusive(self):
+        # Neither was ever checked, but both used to be reported as "Equilibrated".
+        r = ThermoParser().parse_log_text(log(["0 300 -100 1.0\n", "100 900 -99 2.0\n"]))
+        self.assertEqual(r["stability"], "Inconclusive (short run)")
+        rows = "".join(f"{i * 100} -100 1.0\n" for i in range(20))
+        r = ThermoParser().parse_log_text("Step PotEng Press\n" + rows + "Loop time of 1.0 on 1 procs\n")
+        self.assertEqual(r["stability"], "Inconclusive (no Temp column)")
+
+
 if __name__ == "__main__":
     unittest.main()
