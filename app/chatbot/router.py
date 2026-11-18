@@ -433,7 +433,17 @@ class ChatbotRouter:
         has_atom_style = any(l.startswith("atom_style") for l in clean_lines if l)
         has_boundary = any(l.startswith("boundary") for l in clean_lines if l)
         has_run_or_min = any(l.startswith("run ") or l == "run" or l.startswith("minimize ") or l == "minimize" for l in clean_lines if l)
-        has_thermo = any(l.startswith("thermo") for l in clean_lines if l)
+        # Only "thermo N" (N > 0) sets the output frequency; "thermo_style" and "thermo_modify"
+        # used to count too, so a script with just thermo_style never got one.
+        def sets_thermo(l):
+            t = l.split()
+            if len(t) < 2 or t[0] != "thermo":
+                return False
+            try:
+                return int(float(t[1])) > 0
+            except ValueError:
+                return True   # thermo v_n: a variable
+        has_thermo = any(sets_thermo(l) for l in clean_lines if l)
 
         is_metal = any("metal" in l or "eam" in l or "Al" in l or "Cu" in l for l in clean_lines if l)
         unit_str = "units metal" if is_metal else "units lj"
@@ -466,7 +476,12 @@ class ChatbotRouter:
             repaired.append(line)
 
         if not has_thermo:
-            repaired.append("thermo 50")
+            # Before the first run or minimize: appended after it, as before, it only took effect
+            # once the run had finished, i.e. never.
+            def is_exec(line):
+                return line.split('#')[0].strip().split()[:1] in (["run"], ["minimize"])
+            at = next((i for i, line in enumerate(repaired) if is_exec(line)), len(repaired))
+            repaired.insert(at, "thermo 50")
             applied_fixes.append("Added thermo output frequency ('thermo 50')")
         if not has_run_or_min:
             repaired.append("run 1000")

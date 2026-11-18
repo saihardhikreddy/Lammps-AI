@@ -33,6 +33,16 @@ run 100"""
         self.assertFalse(warned(base + "thermo 50\nrun 100"))
         self.assertFalse(warned(base + "minimize 1e-4 1e-6 100 1000"))
 
+    def test_repair_puts_thermo_before_the_run(self):
+        from app.chatbot.router import ChatbotRouter
+        script = "units lj\natom_style atomic\nboundary p p p\nthermo_style custom step temp\nfix 1 all nve\nrun 100"
+        fixed, notes = ChatbotRouter._repair_script(None, script, {})
+        lines = fixed.splitlines()
+        self.assertIn("thermo 50", lines)   # thermo_style alone doesn't set a frequency
+        self.assertLess(lines.index("thermo 50"), lines.index("run 100"))  # after the run it does nothing
+        fixed, _ = ChatbotRouter._repair_script(None, script.replace("run 100", "thermo 10\nrun 100"), {})
+        self.assertNotIn("thermo 50", fixed.splitlines())
+
     def test_read_data_script_is_valid(self):
         # read_data defines the box and the atoms, so no create_atoms is needed
         script = """units real
