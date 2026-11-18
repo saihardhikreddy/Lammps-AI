@@ -92,8 +92,12 @@ class ScriptValidator:
                     style_tok = tokens[3].lower()
                     if style_tok in integrator_styles or any(style_tok.startswith(s) for s in ["nvt", "npt", "nve", "langevin"]):
                         has_integrating_fix = True
-            elif cmd in ("thermo", "thermo_style"):
-                has_thermo = True
+            elif cmd == "thermo" and len(tokens) > 1:
+                # Only "thermo N" sets how often thermo is printed; thermo_style just picks columns.
+                try:
+                    has_thermo = int(float(tokens[1])) > 0
+                except ValueError:
+                    has_thermo = True   # a variable (thermo v_n): assume it is set sensibly
             elif cmd == "run":
                 has_run = True
             elif cmd == "minimize":
@@ -128,6 +132,11 @@ class ScriptValidator:
             warnings.append("No active time-integrating 'fix' (e.g. 'fix 1 all nve', 'fix 1 all nvt'). Atoms will not undergo numerical time integration during dynamics.")
         if not has_run and not has_minimize:
             warnings.append("Script contains no 'run' or 'minimize' execution directive.")
+        if has_run and not has_thermo:
+            # LAMMPS's default (thermo 0) prints only the first and last step: two rows, too few
+            # for the log analysis to judge equilibration or plot anything over time.
+            warnings.append("No 'thermo N' set: LAMMPS will print thermo output only at the first and last "
+                            "step, too few rows to judge equilibration. Add e.g. 'thermo 100'.")
 
         # 4. Liquid velocity & thermal state checks (Issue #18)
         if has_run and not has_velocity and "read_data" not in commands_found and "read_restart" not in commands_found:

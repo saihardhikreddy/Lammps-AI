@@ -23,6 +23,16 @@ run 100"""
         self.assertTrue(res["valid"])
         self.assertEqual(len(res["errors"]), 0)
 
+    def test_run_without_thermo_frequency_is_warned(self):
+        base = "units lj\natom_style atomic\nregion box block 0 4 0 4 0 4\ncreate_box 1 box\n" \
+               "create_atoms 1 box\npair_style lj/cut 2.5\npair_coeff 1 1 1.0 1.0 2.5\nfix 1 all nve\n"
+        warned = lambda script: any("thermo N" in w for w in self.validator.validate_static(script)["warnings"])  # noqa: E731
+        self.assertTrue(warned(base + "run 100"))
+        self.assertTrue(warned(base + "thermo_style custom step temp\nrun 100"))  # columns, not frequency
+        self.assertTrue(warned(base + "thermo 0\nrun 100"))
+        self.assertFalse(warned(base + "thermo 50\nrun 100"))
+        self.assertFalse(warned(base + "minimize 1e-4 1e-6 100 1000"))
+
     def test_read_data_script_is_valid(self):
         # read_data defines the box and the atoms, so no create_atoms is needed
         script = """units real
