@@ -82,8 +82,15 @@ class IntentExtractor:
             user_temp_specified = True
         else:
             temp_match = re.search(r'(\d+(?:\.\d+)?)\s*' + kelvin, lower)
+            # "25 °C" or "1200 degrees Celsius" used to be ignored, and the run quietly got the
+            # material's default temperature instead.
+            celsius_match = re.search(
+                r'(-?\d+(?:\.\d+)?)\s*(?:°\s*c\b|º\s*c\b|degrees?\s*c(?:elsius)?\b|celsius\b)', lower)
             if temp_match:
                 target_temp = float(temp_match.group(1))
+                user_temp_specified = True
+            elif celsius_match:
+                target_temp = round(float(celsius_match.group(1)) + 273.15, 2)
                 user_temp_specified = True
             else:
                 # Baseline fallback only if no temperature specified; marked as not user-specified

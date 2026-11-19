@@ -40,6 +40,14 @@ class TestDynamicPipeline(unittest.TestCase):
         self.assertFalse(params.user_temperature_specified)
         self.assertEqual(self.extractor.extract_structured_parameters("argon at 90k").target_temperature, 90.0)
 
+    def test_celsius_is_converted_to_kelvin(self):
+        """A temperature in Celsius used to be ignored, so water "at 80 °C" ran at 300 K."""
+        for text, kelvin in (("water at 80 °C", 353.15), ("molten aluminum at 800 degrees Celsius", 1073.15),
+                             ("water at -5 degrees C", 268.15)):
+            params = self.extractor.extract_structured_parameters(text)
+            self.assertAlmostEqual(params.target_temperature, kelvin, places=2, msg=text)
+            self.assertTrue(params.user_temperature_specified, text)
+
     def test_quench_range_extraction(self):
         """Verify extraction of temperature ranges (from T1 to T2)."""
         text = "Cool liquid aluminum from 1200 K to 500 K with cooling rate 0.5 K/ps"
