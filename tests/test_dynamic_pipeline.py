@@ -30,6 +30,16 @@ class TestDynamicPipeline(unittest.TestCase):
         self.assertEqual(params.dump_interval, 250)
         self.assertEqual(params.quench_rate, 1e12)
 
+    def test_thousands_of_atoms_are_not_a_temperature(self):
+        """"32k atoms" is 32000 atoms, not 32 K (it used to set the temperature and lose the count)."""
+        params = self.extractor.extract_structured_parameters("Simulate molten copper with 10k atoms at 1600 K")
+        self.assertEqual(params.atom_count, 10000)
+        self.assertEqual(params.target_temperature, 1600.0)
+        params = self.extractor.extract_structured_parameters("Simulate 32k atoms of liquid copper")
+        self.assertEqual(params.atom_count, 32000)
+        self.assertFalse(params.user_temperature_specified)
+        self.assertEqual(self.extractor.extract_structured_parameters("argon at 90k").target_temperature, 90.0)
+
     def test_quench_range_extraction(self):
         """Verify extraction of temperature ranges (from T1 to T2)."""
         text = "Cool liquid aluminum from 1200 K to 500 K with cooling rate 0.5 K/ps"

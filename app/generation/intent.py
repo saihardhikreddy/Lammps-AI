@@ -70,14 +70,18 @@ class IntentExtractor:
         target_temp = None
         start_temp = None
 
+        # A "k" after a number is kelvin unless it is a thousand of something: "32k atoms" used to
+        # be read as 32 K (and the atom count was lost).
+        kelvin = r'(?:k\b(?!\s*(?:atoms|particles|molecules)\b)|kelvin)'
+
         # Check for range: "from 2000 K to 300 K" or "quench 2000 to 300 K"
-        range_match = re.search(r'(?:from|quench|cool(?:ing)?)\s*(\d+(?:\.\d+)?)\s*(?:k)?\s*(?:to|down to)\s*(\d+(?:\.\d+)?)\s*(?:k\b|kelvin)', lower)
+        range_match = re.search(r'(?:from|quench|cool(?:ing)?)\s*(\d+(?:\.\d+)?)\s*(?:k)?\s*(?:to|down to)\s*(\d+(?:\.\d+)?)\s*' + kelvin, lower)
         if range_match:
             start_temp = float(range_match.group(1))
             target_temp = float(range_match.group(2))
             user_temp_specified = True
         else:
-            temp_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:k\b|kelvin)', lower)
+            temp_match = re.search(r'(\d+(?:\.\d+)?)\s*' + kelvin, lower)
             if temp_match:
                 target_temp = float(temp_match.group(1))
                 user_temp_specified = True
@@ -129,12 +133,14 @@ class IntentExtractor:
         else:
             ensemble_specified = False
 
-        # Atom count (e.g., "5000 atoms", "32000 particles", "N=10000")
+        # Atom count (e.g., "5000 atoms", "32000 particles", "32k atoms", "N=10000")
         atom_count = None
-        atom_match = re.search(r'\b(\d+)\s*(?:atoms|particles|molecules)\b|\bn\s*=\s*(\d+)\b', lower)
+        atom_match = re.search(r'\b(\d+(?:\.\d+)?)\s*(k)?\s*(?:atoms|particles|molecules)\b|\bn\s*=\s*(\d+)\b', lower)
         if atom_match:
-            val = atom_match.group(1) or atom_match.group(2)
-            atom_count = int(val)
+            if atom_match.group(1):
+                atom_count = int(round(float(atom_match.group(1)) * (1000 if atom_match.group(2) else 1)))
+            else:
+                atom_count = int(atom_match.group(3))
 
         # Quench Rate (e.g. "quench rate 1e12 K/s", "cooling rate of 0.5 K/ps")
         quench_rate = None
