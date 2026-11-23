@@ -30,6 +30,17 @@ class TestDynamicPipeline(unittest.TestCase):
         self.assertEqual(params.dump_interval, 250)
         self.assertEqual(params.quench_rate, 1e12)
 
+    def test_rate_units_are_not_a_temperature(self):
+        """"1e12 K/s" and "0.5 K/ps" are cooling rates; they used to set the temperature to 12 K and 0.5 K."""
+        for text, rate in (("Quench liquid aluminium at a cooling rate of 1e12 K/s", 1e12),
+                           ("Quench molten copper, cooling rate of 0.5 K/ps", 0.5)):
+            params = self.extractor.extract_structured_parameters(text)
+            self.assertEqual(params.quench_rate, rate)
+            self.assertFalse(params.user_temperature_specified, text)
+            self.assertGreater(params.target_temperature, 100.0, text)
+        params = self.extractor.extract_structured_parameters("Quench copper at 1e12 K/s, hold at 300 K")
+        self.assertEqual(params.target_temperature, 300.0)
+
     def test_thousands_of_atoms_are_not_a_temperature(self):
         """"32k atoms" is 32000 atoms, not 32 K (it used to set the temperature and lose the count)."""
         params = self.extractor.extract_structured_parameters("Simulate molten copper with 10k atoms at 1600 K")

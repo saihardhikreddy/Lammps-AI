@@ -72,7 +72,9 @@ class IntentExtractor:
 
         # A "k" after a number is kelvin unless it is a thousand of something: "32k atoms" used to
         # be read as 32 K (and the atom count was lost).
-        kelvin = r'(?:k\b(?!\s*(?:atoms|particles|molecules)\b)|kelvin)'
+        # A "k" followed by "/" is a rate unit (K/s, K/ps), not a temperature: "cooling rate of
+        # 1e12 K/s" used to set the temperature to 12 K, and "0.5 K/ps" to 0.5 K.
+        kelvin = r'(?:k\b(?!\s*(?:atoms|particles|molecules)\b)(?!\s*/)|kelvin)'
 
         # Check for range: "from 2000 K to 300 K" or "quench 2000 to 300 K"
         range_match = re.search(r'(?:from|quench|cool(?:ing)?)\s*(\d+(?:\.\d+)?)\s*(?:k)?\s*(?:to|down to)\s*(\d+(?:\.\d+)?)\s*' + kelvin, lower)
@@ -81,7 +83,7 @@ class IntentExtractor:
             target_temp = float(range_match.group(2))
             user_temp_specified = True
         else:
-            temp_match = re.search(r'(\d+(?:\.\d+)?)\s*' + kelvin, lower)
+            temp_match = re.search(r'(?<![\w.+-])(\d+(?:\.\d+)?)\s*' + kelvin, lower)
             # "25 °C" or "1200 degrees Celsius" used to be ignored, and the run quietly got the
             # material's default temperature instead.
             celsius_match = re.search(
