@@ -89,8 +89,19 @@ def calculate_green_kubo_viscosity(
             "warning": f"Units '{units}' are not supported; use 'real', 'metal' or 'lj'.",
         }
 
+    # A zero or negative box volume used to give a viscosity of 0 or below 0 Pa·s with no
+    # warning, and a NaN volume or temperature slipped past "temp <= 0" and returned NaN.
+    if not (isinstance(volume, (int, float)) and math.isfinite(volume) and volume > 0):
+        return {
+            "viscosity_pa_s": 0.0,
+            "viscosity_cp": 0.0,
+            "units": units,
+            "converged": False,
+            "warning": f"Box volume must be a positive number, got {volume!r}.",
+        }
+
     n = len(time_pts)
-    if n < 2 or len(acf_pxy) != n or temp <= 0:
+    if n < 2 or len(acf_pxy) != n or not (math.isfinite(temp) and temp > 0):
         return {
             "viscosity_pa_s": 0.0,
             "viscosity_cp": 0.0,

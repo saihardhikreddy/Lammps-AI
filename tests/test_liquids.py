@@ -66,6 +66,18 @@ class TestLiquidStateModules(unittest.TestCase):
         self.assertAlmostEqual(metal["viscosity_pa_s"], real["viscosity_pa_s"], delta=real["viscosity_pa_s"] * 1e-9)
         self.assertAlmostEqual(real["viscosity_cp"], real["viscosity_pa_s"] * 1000.0)
 
+    def test_green_kubo_refuses_non_physical_volume_and_temperature(self):
+        # volume=0 used to return 0 Pa·s, a negative volume a negative viscosity, and NaN a NaN.
+        t, acf = [0.0, 1.0, 2.0], [1.0, 0.5, 0.2]
+        for volume in (0.0, -8000.0, float("nan"), float("inf")):
+            res = calculate_green_kubo_viscosity(t, acf, volume=volume)
+            self.assertFalse(res["converged"])
+            self.assertEqual(res["viscosity_pa_s"], 0.0)
+            self.assertIn("volume", res["warning"])
+        res = calculate_green_kubo_viscosity(t, acf, temp=float("nan"))
+        self.assertFalse(res["converged"])
+        self.assertEqual(res["viscosity_pa_s"], 0.0)
+
     def test_green_kubo_refuses_unsupported_units(self):
         # 'si', 'cgs' or a typo used to be treated as LJ and reported as Pa·s.
         for units in ("si", "cgs", "Real"):
