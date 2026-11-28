@@ -154,8 +154,9 @@ class TestLiquidStateModules(unittest.TestCase):
         # Fitting against the raw step numbers would have given a D 1000x too small.
         steps = [float(line.split()[0]) for line in lines[2:]]
         self.assertAlmostEqual(calculate_diffusion_coefficient(steps, msd)["diffusion_coefficient_m2_s"], 2.5e-12, places=15)
-        with self.assertRaises(ValueError):
-            read_msd_file(f.name, timestep_ps=0)
+        for bad in (0, -0.001, float("nan"), float("inf"), None, "0.001"):
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                read_msd_file(f.name, timestep_ps=bad)
 
     def test_msd_fit_refuses_a_bad_start_fraction_and_skips_nan_rows(self):
         import tempfile

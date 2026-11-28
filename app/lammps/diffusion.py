@@ -113,7 +113,8 @@ def read_msd_file(path: str, timestep_ps: float) -> Tuple[List[float], List[floa
     a 1 fs step in metal or real units). Comment lines, blank lines and rows holding nan or
     inf are skipped.
     """
-    if not timestep_ps or timestep_ps <= 0:
+    # NaN slipped past "<= 0" (every comparison with NaN is False) and turned every time into NaN.
+    if not (isinstance(timestep_ps, (int, float)) and math.isfinite(timestep_ps) and timestep_ps > 0):
         raise ValueError(f"timestep_ps must be positive, got {timestep_ps!r}")
     time_ps: List[float] = []
     msd: List[float] = []
